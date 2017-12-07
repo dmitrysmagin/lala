@@ -1,10 +1,13 @@
-#if 0
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "directqb.h"
+#include "engine.h"
+#include "fmengine.h"
+
+/*
 DECLARE SUB showEnding ()
 DECLARE FUNCTION showTitle% (prefs AS ANY, tileProperties() AS ANY, spriteProperties() AS ANY, tileset%(), spriteset%(), spriteMapping%(), flag%)
-
-'$INCLUDE: 'DIRECTQB.BI'
-'$INCLUDE: 'ENGINE.BI'
-'$INCLUDE: 'FMENGINE.BI'
 
 DIM prefsStore(0) AS TypePrefs
 DIM prefs AS TypePrefs
@@ -13,7 +16,12 @@ DIM spriteset%(0, 0)
 DIM tileProperties(0) AS TypeTileProperties
 DIM spriteProperties(0) AS TypeSpriteProperties
 DIM spriteMapping%(0)
+*/
 
+#undef main
+int main(void)
+{
+/*
 PRINT "INITALIZING OPL3 LIBRARY"
 i% = FMinit
 
@@ -109,7 +117,11 @@ FMend
 
 COLOR 15
 SYSTEM
+*/
+	return 0;
+}
 
+/*
 endingText:
 DATA "YOU DID IT!", "GOT ALL THE", "POTIONS...", "WELL DONE!"
 DATA "BUT THERE'S", "STILL MUCH", "TO DO!", "SEE YOU SOON!"
@@ -193,4 +205,4 @@ FUNCTION showTitle% (prefs AS TypePrefs, tileProperties() AS TypeTileProperties,
     showTitle% = r%
 END FUNCTION
 
-#endif
+*/

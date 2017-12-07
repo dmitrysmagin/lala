@@ -1,4 +1,4 @@
-#if 0
+/*
 DECLARE SUB FMplayeffect (ind%)
 DECLARE SUB FMload (fs$)
 DECLARE SUB BeSilent ()
@@ -16,4 +16,4 @@ DECLARE FUNCTION MPUvol% (vol%, ins%)
 DECLARE FUNCTION note2period% (note%, Oct%, ins%)
 DECLARE FUNCTION VibVal% (ind%, mode%)
 
-#endif
+*/

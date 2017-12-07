@@ -1,4 +1,4 @@
-#if 0
+/*
 '$INCLUDE: 'FMENGINE.BI'
 
 timercallback: FMtimer: RETURN
@@ -878,4 +878,4 @@ FUNCTION VibVal (ind, mode)
     EXIT FUNCTION
 END FUNCTION
 
-#endif
+*/

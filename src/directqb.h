@@ -1,4 +1,4 @@
-#ifdef 0
+/*
 '----------------------------------------------------------------------------
 ' DIRECTQB.BI
 '   Include file for the DirectQB library version 1.61
@@ -158,4 +158,4 @@ CONST KEYANY = -1, KEYESC = 1, KEYENTER = 28, KEYSPACE = 57
 CONST KEYUP = 72, KEYDOWN = 80, KEYLEFT = 75, KEYRIGHT = 77
 CONST UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3
 CONST AUTO = -1, ONCE = 0, LOOPED = 1
-#endif
+*/

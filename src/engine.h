@@ -1,4 +1,4 @@
-#if 0
+/*
 DECLARE SUB engineInitVals (prefsStore() AS ANY)
 DECLARE SUB engineLoadPrefs (id%, prefs AS ANY, prefsStore() AS ANY)
 DECLARE SUB engineLoadTileProperties (tileProperties() AS ANY, prefs AS ANY)
@@ -156,4 +156,4 @@ TYPE TypeEnems
     sprId AS INTEGER
 END TYPE
 
-#endif
+*/

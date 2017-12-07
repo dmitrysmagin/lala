@@ -1,4 +1,4 @@
-#if 0
+/*
 '$DYNAMIC
 '$INCLUDE: 'ENGINE.BI'
 '$INCLUDE: 'DIRECTQB.BI'
@@ -801,4 +801,4 @@ SUB engineScreenPrepare (nPant%, tileProperties() AS TypeTileProperties, map%(),
 	END IF
 END SUB
 
-#endif
+*/
