@@ -41,80 +41,82 @@ CONST DDOWN = 4
 
 CONST STATENORMAL = 0
 CONST STATEFLICKER = 1
+*/
 
-TYPE Coordinates
-    x AS INTEGER
-    y AS INTEGER
-END TYPE
+typedef struct {
+	int x;
+	int y;
+} Coordinates;
 
-TYPE TypePlayer
-    x AS INTEGER            ' X coordinate
-    y AS INTEGER            ' Y coordinate
-    vx AS INTEGER           ' speed on X
-    vy AS INTEGER           ' speed on Y
-    frame AS INTEGER        ' animation frame
-    facing AS INTEGER       ' left or right?
-    subFrame AS INTEGER     ' subframe counter
-    sprId AS INTEGER        ' ID of current sprite in spriteset
-    gotten AS INTEGER       ' on a platform
-    jumping AS INTEGER      ' jumping
-    ctJump AS INTEGER       ' for how long?
-    lives AS INTEGER        ' player lives
-    objects AS INTEGER      ' player objects
-    score AS INTEGER        ' player score
-    keys AS INTEGER         ' player keys
-    attempt AS INTEGER      ' player wants to exit screen
-    state AS INTEGER
-    ctState AS INTEGER
-    gameOver AS INTEGER
-END TYPE
+typedef struct {
+	int x;		// X coordinate
+	int y;		// Y coordinate
+	int vx;		// speed on X
+	int vy;		// speed on Y
+	int frame;	// animation frame
+	int facing;	// left or right?
+	int subFrame;	// subframe counter
+	int sprId;	// ID of current sprite in spriteset
+	int gotten;	// on a platform
+	int jumping;	// jumping
+	int ctJump;	// for how long?
+	int lives;	// player lives
+	int objects;	// player objects
+	int score;	// player score
+	int keys;	// player keys
+	int attempt;	// player wants to exit screen
+	int state;
+	int ctState;
+	int gameOver;
+} TypePlayer;
 
-TYPE TypePrefs
-    mapFile AS STRING * 12
-    tilesetFile AS STRING * 12
-    backdropFile AS STRING * 12
-    tilePropertiesFile AS STRING * 12
-    spritePropertiesFile AS STRING * 12
-    spritesetFile AS STRING * 12
-    spriteMappingFile AS STRING * 12
-    enemsFile AS STRING * 12
-    hotSpotsFile AS STRING * 12
-    mapW AS INTEGER
-    mapH AS INTEGER
-    screenW AS INTEGER
-    screenH AS INTEGER
-    screenPos AS Coordinates
-    numTiles AS INTEGER
-    numSprites AS INTEGER
-    pal AS STRING * 768
-    gMaxVy AS INTEGER
-    g AS INTEGER
-    jumpVyInitial AS INTEGER
-    jumpVyMax AS INTEGER
-    jumpIncr AS INTEGER
-    walkVxMax AS INTEGER
-    walkAx AS INTEGER
-    walkFr AS INTEGER
-    iniPant AS INTEGER
-    iniTX AS INTEGER
-    iniTY AS INTEGER
-    nEnems AS INTEGER
-    totalEnems AS INTEGER
-    enemPlat AS INTEGER
-    boltTile AS INTEGER
-    lifeTile AS INTEGER
-    objectTile AS INTEGER
-    keyTile AS INTEGER
-    initialLives AS INTEGER
-    maxObjs AS INTEGER
-    refill AS INTEGER
-    hotSpotX AS INTEGER
-    hotSpotY AS INTEGER
-    bgM AS STRING * 12
-    bgL1 AS INTEGER
-    bgL2 AS INTEGER
-END TYPE
+typedef struct {
+	char map[13];
+	char tilesetFile[13];
+	char backdropFile[13];
+	char tilePropertiesFile[13];
+	char spritePropertiesFile[13];
+	char spritesetFile[13];
+	char spriteMappingFile[13];
+	char enemsFile[13];
+	char hotSpotsFile[13];
+	int mapW;
+	int mapH;
+	int screenW;
+	int screenH;
+	Coordinates screenPos;
+	int numTiles;
+	int numSprites;
+	char pal[768];
+	int gMaxVy;
+	int g;
+	int jumpVyInitial;
+	int jumpVyMax;
+	int jumpIncr;
+	int walkVxMax;
+	int walkAx;
+	int walkFr;
+	int iniPant;
+	int iniTX;
+	int iniTY;
+	int nEnems;
+	int totalEnems;
+	int enemPlat;
+	int boltTile;
+	int lifeTile;
+	int objectTile;
+	int keyTile;
+	int initialLives;
+	int maxObjs;
+	int refill;
+	int hotSpotX;
+	int hotSpotY;
+	char bgM[13];
+	int bgL1;
+	int bgL2;
+} TypePrefs;
 
+/*
 TYPE TypeTileProperties
     location AS INTEGER
     flags AS INTEGER
