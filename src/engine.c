@@ -1,11 +1,16 @@
-/*
-'$DYNAMIC
-'$INCLUDE: 'ENGINE.BI'
-'$INCLUDE: 'DIRECTQB.BI'
-'$INCLUDE: 'FMENGINE.BI'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "directqb.h"
+#include "engine.h"
+#include "fmengine.h"
+
+TypePrefs prefs;
+TypePlayer player;
+
+/*
 DEFINT A-Z
-DIM SHARED player AS TypePlayer
 
 FUNCTION cToIdx% (x%, y%)
 	' HUGE DISCLAIMER: This funcion has to be modified manually.
@@ -276,55 +281,58 @@ SUB engineInitPlayer (player AS TypePlayer, prefs AS TypePrefs)
 	player.state = STATENORMAL
 	player.objects = 0
 END SUB
+*/
 
-SUB engineInitVals (prefsStore() AS TypePrefs)
-	REDIM prefsStore(2) AS TypePrefs
-	prefsStore(0).mapFile = "LALA.MAP"
-	prefsStore(0).tilesetFile = "TILESET.PCX"
-	prefsStore(0).tilePropertiesFile = "TILEPROP.TXT"
-	prefsStore(0).backdropFile = "BACKDROP.PCX"
-	prefsStore(0).spritesetFile = "SPRSET.PCX"
-	prefsStore(0).spritePropertiesFile = "SPRPROP.TXT"
-	prefsStore(0).spriteMappingFile = "SPRMAP.TXT"
-	prefsStore(0).enemsFile = "ENEMS.TXT"
-	prefsStore(0).hotSpotsFile = "HOTSPOTS.TXT"
-	prefsStore(0).mapW = 6
-	prefsStore(0).mapH = 6
-	prefsStore(0).screenW = 20
-	prefsStore(0).screenH = 12
-	prefsStore(0).screenPos.x = 0
-	prefsStore(0).screenPos.y = 4
-	' Player movement values
-	prefsStore(0).gMaxVy = 192 '256
-	prefsStore(0).g = 12 '16
-	prefsStore(0).jumpVyInitial = 32 '64
-	prefsStore(0).jumpVyMax = 192 '256
-	prefsStore(0).jumpIncr = 24 '48
-	prefsStore(0).walkVxMax = 128
-	prefsStore(0).walkAx = 16
-	prefsStore(0).walkFr = 24
-	' Game initial status
-	prefsStore(0).iniPant = 24
-	prefsStore(0).iniTX = 2
-	prefsStore(0).iniTY = 1
-	' Enems
-	prefsStore(0).nEnems = 4
-	prefsStore(0).enemPlat = 4
-	' special tiles
-	prefsStore(0).boltTile = 22
-	prefsStore(0).lifeTile = 34
-	prefsStore(0).objectTile = 35
-	prefsStore(0).keyTile = 36
-	' stats
-	prefsStore(0).initialLives = 15
-	prefsStore(0).maxObjs = 15
-	prefsStore(0).refill = 1
-	' music
-	prefsStore(0).bgM = "DESORUIN.S3M"
-	prefsStore(0).bgL1 = 9
-	prefsStore(0).bgL2 = 10
-END SUB
+// SUB engineInitVals (prefsStore() AS TypePrefs)
+void engineInitVals(void)
+{
+	strncpy(prefs.mapFile, "LALA.MAP", 12);
+	strncpy(prefs.tilesetFile, "TILESET.PCX", 12);
+	strncpy(prefs.tilePropertiesFile, "TILEPROP.TXT", 12);
+	strncpy(prefs.backdropFile, "BACKDROP.PCX", 12);
+	strncpy(prefs.spritesetFile, "SPRSET.PCX", 12);
+	strncpy(prefs.spritePropertiesFile, "SPRPROP.TXT", 12);
+	strncpy(prefs.spriteMappingFile, "SPRMAP.TXT", 12);
+	strncpy(prefs.enemsFile, "ENEMS.TXT", 12);
+	strncpy(prefs.hotSpotsFile, "HOTSPOTS.TXT", 12);
+	prefs.mapW = 6;
+	prefs.mapH = 6;
+	prefs.screenW = 20;
+	prefs.screenH = 12;
+	prefs.screenPos.x = 0;
+	prefs.screenPos.y = 4;
+	// Player movement values
+	prefs.gMaxVy = 192; //256
+	prefs.g = 12; //16
+	prefs.jumpVyInitial = 32; //64
+	prefs.jumpVyMax = 192; //256
+	prefs.jumpIncr = 24; //48
+	prefs.walkVxMax = 128;
+	prefs.walkAx = 16;
+	prefs.walkFr = 24;
+	// Game initial status
+	prefs.iniPant = 24;
+	prefs.iniTX = 2;
+	prefs.iniTY = 1;
+	// Enems
+	prefs.nEnems = 4;
+	prefs.enemPlat = 4;
+	// special tiles
+	prefs.boltTile = 22;
+	prefs.lifeTile = 34;
+	prefs.objectTile = 35;
+	prefs.keyTile = 36;
+	// stats
+	prefs.initialLives = 15;
+	prefs.maxObjs = 15;
+	prefs.refill = 1;
+	// music
+	strncpy(prefs.bgM, "DESORUIN.S3M", 12);
+	prefs.bgL1 = 9;
+	prefs.bgL2 = 10;
+}
 
+/*
 SUB engineLoadEnems (enems() AS TypeEnems, prefs AS TypePrefs)
 	maxPants% = prefs.mapW * (prefs.mapH - 1) - 1
 	f% = FREEFILE
@@ -357,10 +365,6 @@ SUB engineLoadHotSpots (hotSpots() AS TypeHotSpots, prefs AS TypePrefs)
 		hotSpots(i%).s = -1
 	NEXT i%
 	CLOSE #f%
-END SUB
-
-SUB engineLoadPrefs (id%, prefs AS TypePrefs, prefsStore() AS TypePrefs)
-	prefs = prefsStore(id%)
 END SUB
 
 SUB engineLoadSpriteMapping (spriteMapping%(), prefs AS TypePrefs)

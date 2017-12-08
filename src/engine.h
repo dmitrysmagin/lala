@@ -1,6 +1,11 @@
+
+//DECLARE SUB engineInitVals (prefsStore() AS ANY)
+void engineInitVals(void);
+
+//DECLARE SUB engineLoadPrefs (id%, prefs AS ANY, prefsStore() AS ANY)
+// eliminated
+
 /*
-DECLARE SUB engineInitVals (prefsStore() AS ANY)
-DECLARE SUB engineLoadPrefs (id%, prefs AS ANY, prefsStore() AS ANY)
 DECLARE SUB engineLoadTileProperties (tileProperties() AS ANY, prefs AS ANY)
 DECLARE SUB engineLoadTileset (tileset%(), prefs AS ANY)
 DECLARE SUB engineLoadSpriteset (spriteset%(), prefs AS ANY)
@@ -71,7 +76,7 @@ typedef struct {
 } TypePlayer;
 
 typedef struct {
-	char map[13];
+	char mapFile[13];
 	char tilesetFile[13];
 	char backdropFile[13];
 	char tilePropertiesFile[13];

@@ -76,8 +76,9 @@ DQBinstallKeyboard
 ' Init game
 
 PRINT "INITIALIZING GAME"
-engineInitVals prefsStore()
-engineLoadPrefs 0, prefs, prefsStore()
+*/
+	engineInitVals();
+/*
 engineLoadTileProperties tileProperties(), prefs
 engineLoadTileset tileset%(), prefs
 engineLoadSpriteProperties spriteProperties(), prefs
