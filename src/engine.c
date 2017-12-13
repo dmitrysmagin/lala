@@ -9,6 +9,14 @@
 TypePrefs prefs;
 TypePlayer player;
 
+TypeTileProperties tileProperties[] = {
+	{0,0}, {1,8}, {1,8}, {1,8}, {1,8}, {0,0}, {0,0}, {0,0}, {1,8},
+	{1,8}, {1,4}, {1,4}, {0,4}, {0,4}, {0,1}, {1,8}, {1,8}, {1,8},
+	{1,8}, {1,8}, {1,4}, {1,4}, {1,10}, {1,4}, {2,0}, {1,0}, {1,0},
+	{1,0}, {2,0}, {1,0}, {1,0}, {1,0}, {0,4}, {1,1}, {0,0}, {0,0},
+	{0,0}, {0,0}, {0,0}, {0,0}, {0,0},
+};
+
 /*
 DEFINT A-Z
 
@@ -288,7 +296,7 @@ void engineInitVals(void)
 {
 	strncpy(prefs.mapFile, "LALA.MAP", 12);
 	strncpy(prefs.tilesetFile, "TILESET.PCX", 12);
-	strncpy(prefs.tilePropertiesFile, "TILEPROP.TXT", 12);
+	//strncpy(prefs.tilePropertiesFile, "TILEPROP.TXT", 12);
 	strncpy(prefs.backdropFile, "BACKDROP.PCX", 12);
 	strncpy(prefs.spritesetFile, "SPRSET.PCX", 12);
 	strncpy(prefs.spritePropertiesFile, "SPRPROP.TXT", 12);
@@ -410,21 +418,16 @@ SUB engineLoadSpriteset (spriteset%(), prefs AS TypePrefs)
 	NEXT i%
 	DQBclearLayer 3
 END SUB
+*/
 
-SUB engineLoadTileProperties (tileProperties() AS TypeTileProperties, prefs AS TypePrefs)
-	REDIM tileProperties(59) AS TypeTileProperties
-	f% = FREEFILE
-	index% = 0
-	OPEN "MAP\" + prefs.tilePropertiesFile FOR INPUT AS #f%
-	WHILE NOT EOF(f%)
-		INPUT #f%, tileProperties(index%).location
-		INPUT #f%, tileProperties(index%).flags
-		index% = index% + 1
-	WEND
-	CLOSE #f%
-	prefs.numTiles = index%
-END SUB
+//SUB engineLoadTileProperties (tileProperties() AS TypeTileProperties, prefs AS TypePrefs)
+void engineLoadTileProperties()
+{
+	// FIXME: load tileProperties from TILEPROP.TXT
+	prefs.numTiles = sizeof(tileProperties) / sizeof(tileProperties[0]);
+}
 
+/*
 SUB engineLoadTileset (tileset%(), prefs AS TypePrefs)
 	REDIM tileset%(129, prefs.numTiles)
 	i% = DQBloadImage(3, 0, 0, "GFX\" + prefs.tilesetFile, prefs.pal, w%, h%)

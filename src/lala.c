@@ -9,11 +9,8 @@
 DECLARE SUB showEnding ()
 DECLARE FUNCTION showTitle% (prefs AS ANY, tileProperties() AS ANY, spriteProperties() AS ANY, tileset%(), spriteset%(), spriteMapping%(), flag%)
 
-DIM prefsStore(0) AS TypePrefs
-DIM prefs AS TypePrefs
 DIM tileset%(0, 0)
 DIM spriteset%(0, 0)
-DIM tileProperties(0) AS TypeTileProperties
 DIM spriteProperties(0) AS TypeSpriteProperties
 DIM spriteMapping%(0)
 */
@@ -78,8 +75,8 @@ DQBinstallKeyboard
 PRINT "INITIALIZING GAME"
 */
 	engineInitVals();
+	engineLoadTileProperties();
 /*
-engineLoadTileProperties tileProperties(), prefs
 engineLoadTileset tileset%(), prefs
 engineLoadSpriteProperties spriteProperties(), prefs
 engineLoadSpriteset spriteset%(), prefs

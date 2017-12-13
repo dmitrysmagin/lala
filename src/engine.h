@@ -5,8 +5,11 @@ void engineInitVals(void);
 //DECLARE SUB engineLoadPrefs (id%, prefs AS ANY, prefsStore() AS ANY)
 // eliminated
 
+
+//DECLARE SUB engineLoadTileProperties (tileProperties() AS ANY, prefs AS ANY)
+void engineLoadTileProperties();
+
 /*
-DECLARE SUB engineLoadTileProperties (tileProperties() AS ANY, prefs AS ANY)
 DECLARE SUB engineLoadTileset (tileset%(), prefs AS ANY)
 DECLARE SUB engineLoadSpriteset (spriteset%(), prefs AS ANY)
 DECLARE SUB engineScreenPrepare (nPant%, tileProperties() AS ANY, map%(), curScreenBuff() AS ANY, prefs AS ANY, hotSpots() AS ANY)
@@ -79,7 +82,7 @@ typedef struct {
 	char mapFile[13];
 	char tilesetFile[13];
 	char backdropFile[13];
-	char tilePropertiesFile[13];
+	//char tilePropertiesFile[13];
 	char spritePropertiesFile[13];
 	char spritesetFile[13];
 	char spriteMappingFile[13];
@@ -121,12 +124,12 @@ typedef struct {
 	int bgL2;
 } TypePrefs;
 
-/*
-TYPE TypeTileProperties
-    location AS INTEGER
-    flags AS INTEGER
-END TYPE
+typedef struct {
+	int location;
+	int flags;
+} TypeTileProperties;
 
+/*
 TYPE TypeTileLayers
     layer1 AS INTEGER
     layer2 AS INTEGER
