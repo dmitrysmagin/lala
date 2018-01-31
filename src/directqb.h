@@ -12,16 +12,21 @@
 '
 ' þ Read DIRECTQB.DOC for detailed informations on how to use the library
 '----------------------------------------------------------------------------
+*/
 
-'$DYNAMIC
-DEFINT A-Z
+#ifndef _DIRECTQB_H_
+#define _DIRECTQB_H_
 
-' Procedures from MAIN.OBJ:
-DECLARE FUNCTION DQBinit% (BYVAL NumLayers%, BYVAL NumSounds%, BYVAL MemSize%)
+// ' Procedures from MAIN.OBJ:
+// DECLARE FUNCTION DQBinit% (BYVAL NumLayers%, BYVAL NumSounds%, BYVAL MemSize%)
+int DQBinit(int NumLayers, int NumSounds, int MemSize);
+// DECLARE SUB DQBclose ()
+void DQBclose();
+
+/*
 DECLARE FUNCTION DQBver% ()
 DECLARE FUNCTION DQBid$ ()
 DECLARE FUNCTION DQBmapLayer% (BYVAL Layer%)
-DECLARE SUB DQBclose ()
 DECLARE SUB DQBpeek (BYVAL DataSeg%, BYVAL DataOff%, BYVAL Offset&, BYVAL Length%)
 DECLARE SUB DQBpoke (BYVAL DataSeg%, BYVAL DataOff%, BYVAL Offset&, BYVAL Length%)
 DECLARE SUB DQBsort (BYVAL ArraySeg%, BYVAL ArrayOff%, BYVAL NumRecords%, BYVAL RecordLen%, BYVAL IndexOff%)
@@ -159,3 +164,5 @@ CONST KEYUP = 72, KEYDOWN = 80, KEYLEFT = 75, KEYRIGHT = 77
 CONST UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3
 CONST AUTO = -1, ONCE = 0, LOOPED = 1
 */
+
+#endif // _DIRECTQB_H_

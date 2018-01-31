@@ -17,18 +17,21 @@ DIM spriteMapping%(0)
 #undef main
 int main(void)
 {
-/*
-PRINT "INITALIZING OPL3 LIBRARY"
-i% = FMinit
+	int i;
 
-' Init DirectQB for 4 layers
-PRINT "INITIALIZING DIRECTQB"
-i% = DQBinit(5, 11, 0)
-IF i% <> 0 THEN
-    PRINT "DIRECTQB FATAL ERROR!"
-    PRINT DQBerror$
-    SYSTEM
-END IF
+	//PRINT "INITALIZING OPL3 LIBRARY"
+	//i% = FMinit
+
+	// Init DirectQB for 4 layers
+	printf("INITIALIZING DIRECTQB\n");
+	i = DQBinit(5, 11, 0);
+	if (i) {
+	printf("DIRECTQB FATAL ERROR!\n");
+	//PRINT DQBerror$
+	//SYSTEM
+	}
+
+/*
 ' Load font
 PRINT "LOADING FONT"
 i% = DQBloadFont("GFX\LALA.FNT")
@@ -68,11 +71,11 @@ END IF
 ' Install keyboard
 PRINT "INSTALLING KEYBOARD HANDLER"
 DQBinstallKeyboard
-
-' Init game
-
-PRINT "INITIALIZING GAME"
 */
+
+	// Init game
+	printf("INITIALIZING GAME\n");
+
 	engineInitVals();
 	engineLoadTileProperties();
 /*
@@ -108,8 +111,10 @@ LOOP WHILE i%
 
 DQBinitText
 DQBremoveKeyboard
-DQBclose
+*/
+	DQBclose();
 
+/*
 FMend
 
 COLOR 15
