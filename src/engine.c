@@ -18,6 +18,12 @@ TypeTileProperties tileProperties[] = {
 };
 
 /*
+    Originally: DIM tileset%(0 TO 129, prefs.numTiles)
+    FIXME: Assume we have a pointer array of max 240 tiles
+*/
+char *tileset[240];
+
+/*
 DEFINT A-Z
 
 FUNCTION cToIdx% (x%, y%)

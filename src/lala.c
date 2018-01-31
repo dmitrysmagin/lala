@@ -9,7 +9,6 @@
 DECLARE SUB showEnding ()
 DECLARE FUNCTION showTitle% (prefs AS ANY, tileProperties() AS ANY, spriteProperties() AS ANY, tileset%(), spriteset%(), spriteMapping%(), flag%)
 
-DIM tileset%(0, 0)
 DIM spriteset%(0, 0)
 DIM spriteProperties(0) AS TypeSpriteProperties
 DIM spriteMapping%(0)
