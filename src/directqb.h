@@ -17,6 +17,11 @@
 #ifndef _DIRECTQB_H_
 #define _DIRECTQB_H_
 
+// Library constants:
+#define AUTO	(-1)
+#define ONCE	 (0)
+#define LOOPED	 (1)
+
 // ' Procedures from MAIN.OBJ:
 // DECLARE FUNCTION DQBinit% (BYVAL NumLayers%, BYVAL NumSounds%, BYVAL MemSize%)
 int DQBinit(int NumLayers, int NumSounds, int MemSize);
@@ -110,7 +115,10 @@ DECLARE SUB DQBprint (Layer%, Text$, x%, y%, Col%)
 DECLARE SUB DQBprints (Layer%, Text$, x%, y%, Col%, Style%)
 DECLARE FUNCTION DQBlen% (Text$)
 DECLARE SUB DQBsetBIOSfont ()
-DECLARE FUNCTION DQBloadFont% (FileName$)
+*/
+// DECLARE FUNCTION DQBloadFont% (FileName$)
+int DQBloadFont(char *FileName);
+/*
 DECLARE SUB DQBsetFont (Font$)
 DECLARE SUB DQBsetTextStyle (BYVAL Style%)
 DECLARE SUB DQBsetTextBackCol (BYVAL Col%)
@@ -127,19 +135,29 @@ DECLARE FUNCTION DQBloadBMap% (BMap%, FileName$)
 DECLARE FUNCTION DQBsaveBMap% (BMap%, FileName$)
 DECLARE SUB DQBsetBMap (BYVAL BMap%, BYVAL ForeCol%, BYVAL BackCol%, BYVAL NewCol%)
 DECLARE FUNCTION DQBgetBMap% (BYVAL BMap%, BYVAL ForeCol%, BYVAL BackCol%)
+*/
 
-' Procedures from KEYBOARD.OBJ:
-DECLARE SUB DQBinstallKeyboard ()
-DECLARE SUB DQBremoveKeyboard ()
+// Procedures from KEYBOARD.OBJ:
+// DECLARE SUB DQBinstallKeyboard ()
+void DQBinstallKeyboard();
+// DECLARE SUB DQBremoveKeyboard ()
+void DQBremoveKeyboard();
+
+/*
 DECLARE FUNCTION DQBkey% (BYVAL ScanCode%)
 DECLARE FUNCTION DQBreadKey% ()
 DECLARE SUB DQBwaitKey (BYVAL ScanCode%)
 DECLARE FUNCTION DQBasc% (BYVAL ScanCode%, BYVAL ShiftFlag%)
 DECLARE FUNCTION DQBinkey$ ()
+*/
 
-' Procedures from SOUND.OBJ:
-DECLARE FUNCTION DQBinstallSB% (BYVAL VolActive%, BYVAL Channels%, BYVAL Freq%, BYVAL BaseAddr%, BYVAL IRQ%, BYVAL DMA%)
-DECLARE FUNCTION DQBloadSound% (Slot%, FileName$)
+// Procedures from SOUND.OBJ:
+// DECLARE FUNCTION DQBinstallSB% (BYVAL VolActive%, BYVAL Channels%, BYVAL Freq%, BYVAL BaseAddr%, BYVAL IRQ%, BYVAL DMA%)
+int DQBinstallSB(int VolActive, int Channels, int Freq, int BaseAddr, int IRQ, int DMA);
+// DECLARE FUNCTION DQBloadSound% (Slot%, FileName$)
+int DQBloadSound(int Slot, char *FileName);
+
+/*
 DECLARE FUNCTION DQBloadRawSound% (Slot%, FileName$, Offset&, Length&)
 DECLARE FUNCTION DQBinUse% (BYVAL Voice%)
 DECLARE SUB DQBplaySound (BYVAL SoundNum%, BYVAL Voice%, BYVAL Freq%, BYVAL LoopFlag%)

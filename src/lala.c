@@ -19,78 +19,81 @@ int main(void)
 {
 	int i;
 
-	//PRINT "INITALIZING OPL3 LIBRARY"
-	//i% = FMinit
+	printf("INITALIZING OPL3 LIBRARY\n");
+	//i = FMinit();
 
 	// Init DirectQB for 4 layers
 	printf("INITIALIZING DIRECTQB\n");
 	i = DQBinit(5, 11, 0);
 	if (i) {
-	printf("DIRECTQB FATAL ERROR!\n");
-	//PRINT DQBerror$
-	//SYSTEM
+		printf("DIRECTQB FATAL ERROR!\n");
+		//PRINT DQBerror$
+		exit(1);
 	}
 
-/*
-' Load font
-PRINT "LOADING FONT"
-i% = DQBloadFont("GFX\LALA.FNT")
-IF i% <> 0 THEN
-    PRINT "ERROR LOADING FONT!"
-    PRINT DQBerror$
-    DQBclose
-    SYSTEM
-END IF
-' Install Soundblaster
-PRINT "INSTALLING SOUNDBLASTER DRIVER"
-i% = DQBinstallSB(0, 6, 11025, AUTO, AUTO, AUTO)
-IF i% <> 0 THEN
-    PRINT "ERROR SETTING UP SOUNDBLASTER!"
-    PRINT DQBerror$
-    DQBclose
-    SYSTEM
-END IF
-' Load sounds
-PRINT "LOADING SOUNDS"
-i% = DQBloadSound(8, "SFX\AH.WAV")
-i% = i% OR DQBloadSound(1, "SFX\BOLT.WAV")
-i% = i% OR DQBloadSound(2, "SFX\HIT.WAV")
-i% = i% OR DQBloadSound(3, "SFX\JUMP.WAV")
-i% = i% OR DQBloadSound(4, "SFX\KEY.WAV")
-i% = i% OR DQBloadSound(5, "SFX\LIFE.WAV")
-i% = i% OR DQBloadSound(6, "SFX\OBJECT.WAV")
-i% = i% OR DQBloadSound(7, "SFX\PINCHE.WAV")
-i% = i% OR DQBloadSound(9, "SFX\AMBIENT1.WAV")
-i% = i% OR DQBloadSound(10, "SFX\AMBIENT2.WAV")
-IF i% <> 0 THEN
-    PRINT "ERROR LOADING SOUNDS!"
-    PRINT DQBerror$
-    DQBclose
-    SYSTEM
-END IF
-' Install keyboard
-PRINT "INSTALLING KEYBOARD HANDLER"
-DQBinstallKeyboard
-*/
+	// Load font
+	printf("LOADING FONT\n");
+	i = DQBloadFont("GFX/LALA.FNT");
+	if (i)	{
+		printf("ERROR LOADING FONT!\n");
+		//PRINT DQBerror$
+		DQBclose();
+		exit(1);
+	}
+
+	// Install Soundblaster
+	printf("INSTALLING SOUNDBLASTER DRIVER\n");
+	i = DQBinstallSB(0, 6, 11025, AUTO, AUTO, AUTO);
+	if (i) {
+		printf("ERROR SETTING UP SOUNDBLASTER!\n");
+		//PRINT DQBerror$
+		DQBclose();
+		exit(1);
+	}
+
+
+	// Load sounds
+	printf("LOADING SOUNDS\n");
+	i = DQBloadSound(8, "SFX/AH.WAV");
+	i |= DQBloadSound(1, "SFX/BOLT.WAV");
+	i |= DQBloadSound(2, "SFX/HIT.WAV");
+	i |= DQBloadSound(3, "SFX/JUMP.WAV");
+	i |= DQBloadSound(4, "SFX/KEY.WAV");
+	i |= DQBloadSound(5, "SFX/LIFE.WAV");
+	i |= DQBloadSound(6, "SFX/OBJECT.WAV");
+	i |= DQBloadSound(7, "SFX/PINCHE.WAV");
+	i |= DQBloadSound(9, "SFX/AMBIENT1.WAV");
+	i |= DQBloadSound(10, "SFX/AMBIENT2.WAV");
+
+	if (i) {
+		printf("ERROR LOADING SOUNDS!\n");
+		//PRINT DQBerror$
+		DQBclose();
+		exit(1);
+	}
+
+	// Install keyboard
+	printf("INSTALLING KEYBOARD HANDLER\n");
+	DQBinstallKeyboard();
 
 	// Init game
 	printf("INITIALIZING GAME\n");
 
 	engineInitVals();
 	engineLoadTileProperties();
+
+	//engineLoadTileset tileset%(), prefs
+	//engineLoadSpriteProperties spriteProperties(), prefs
+	//engineLoadSpriteset spriteset%(), prefs
+	//engineLoadSpriteMapping spriteMapping%(), prefs
+
+	//DQBfadeTo 0, 0, 0
+	//DQBinitVGA
+
 /*
-engineLoadTileset tileset%(), prefs
-engineLoadSpriteProperties spriteProperties(), prefs
-engineLoadSpriteset spriteset%(), prefs
-engineLoadSpriteMapping spriteMapping%(), prefs
-
-DQBfadeTo 0, 0, 0
-DQBinitVGA
-
 ' Load blender map
 ' This blender map has been created for colours 254 (white) and 255 (black).
 ' This way you can easily create nifty "darken"/"brighten" effects easily.
-dummy& = SETMEM(-513)
 i% = DQBcreateBMap(1, 254, 255)
 IF i% THEN DQBinitText: PRINT "ERROR creating blender map"; DQBerror$: DQBclose: SYSTEM
 i% = DQBloadBMap(1, "GFX\LALA.BMA")
@@ -108,18 +111,14 @@ DO
         END IF
     END IF
 LOOP WHILE i%
-
-DQBinitText
-DQBremoveKeyboard
 */
+	//DQBinitText();
+	DQBremoveKeyboard();
+
 	DQBclose();
 
-/*
-FMend
+	//FMend();
 
-COLOR 15
-SYSTEM
-*/
 	return 0;
 }
 
