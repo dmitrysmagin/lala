@@ -19,7 +19,12 @@ DECLARE SUB engineScreenDrawLayer2 (frame%, tileset%(), prefs AS ANY, curScreenB
 DECLARE SUB engineInitPlayer (player AS ANY, prefs AS ANY)
 DECLARE SUB engineLoadSpriteProperties (spriteProperties() AS ANY, prefs AS ANY)
 DECLARE SUB engineMovePlayer (curScreenBuff() AS ANY, player AS ANY, prefs AS ANY, map%())
-DECLARE SUB engineLoadSpriteMapping (spriteMapping%(), prefs AS ANY)
+*/
+
+//DECLARE SUB engineLoadSpriteMapping (spriteMapping%(), prefs AS ANY)
+void engineLoadSpriteMapping();
+
+/*
 DECLARE SUB engineCalcPlayerFrame (player AS ANY, spriteMapping%())
 DECLARE SUB engineCalcEnemsFrame (enems() AS ANY, spriteMapping%(), nPant%, prefs AS ANY)
 DECLARE SUB engineLoadEnems (enems() AS ANY, prefs AS ANY)
@@ -85,7 +90,7 @@ typedef struct {
 	//char tilePropertiesFile[13];
 	char spritePropertiesFile[13];
 	char spritesetFile[13];
-	char spriteMappingFile[13];
+	//char spriteMappingFile[13];
 	char enemsFile[13];
 	char hotSpotsFile[13];
 	int mapW;

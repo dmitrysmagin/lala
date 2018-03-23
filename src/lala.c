@@ -11,7 +11,6 @@ DECLARE FUNCTION showTitle% (prefs AS ANY, tileProperties() AS ANY, spriteProper
 
 DIM spriteset%(0, 0)
 DIM spriteProperties(0) AS TypeSpriteProperties
-DIM spriteMapping%(0)
 */
 
 #undef main
@@ -85,7 +84,7 @@ int main(void)
 	//engineLoadTileset tileset%(), prefs
 	//engineLoadSpriteProperties spriteProperties(), prefs
 	//engineLoadSpriteset spriteset%(), prefs
-	//engineLoadSpriteMapping spriteMapping%(), prefs
+	engineLoadSpriteMapping();
 
 	//DQBfadeTo 0, 0, 0
 	//DQBinitVGA
