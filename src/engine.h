@@ -17,12 +17,14 @@ DECLARE SUB engineMapLoad (prefs AS ANY, map%())
 DECLARE SUB engineScreenDrawLayer1 (tileset%(), prefs AS ANY, curScreenBuff() AS ANY)
 DECLARE SUB engineScreenDrawLayer2 (frame%, tileset%(), prefs AS ANY, curScreenBuff() AS ANY)
 DECLARE SUB engineInitPlayer (player AS ANY, prefs AS ANY)
-DECLARE SUB engineLoadSpriteProperties (spriteProperties() AS ANY, prefs AS ANY)
 DECLARE SUB engineMovePlayer (curScreenBuff() AS ANY, player AS ANY, prefs AS ANY, map%())
 */
 
 //DECLARE SUB engineLoadSpriteMapping (spriteMapping%(), prefs AS ANY)
 void engineLoadSpriteMapping();
+
+//DECLARE SUB engineLoadSpriteProperties (spriteProperties() AS ANY, prefs AS ANY)
+void engineLoadSpriteProperties();
 
 /*
 DECLARE SUB engineCalcPlayerFrame (player AS ANY, spriteMapping%())
@@ -88,7 +90,7 @@ typedef struct {
 	char tilesetFile[13];
 	char backdropFile[13];
 	//char tilePropertiesFile[13];
-	char spritePropertiesFile[13];
+	//char spritePropertiesFile[13];
 	char spritesetFile[13];
 	//char spriteMappingFile[13];
 	char enemsFile[13];
@@ -142,12 +144,13 @@ TYPE TypeTileLayers
     anim AS INTEGER
     realMapIndex AS INTEGER
 END TYPE
+*/
 
-TYPE TypeSpriteProperties
-    offX AS INTEGER
-    offY AS INTEGER
-END TYPE
+typedef struct {
+	int offX, offY;
+} TypeSpriteProperties;
 
+/*
 TYPE TypeHotSpots
     x AS INTEGER
     y AS INTEGER

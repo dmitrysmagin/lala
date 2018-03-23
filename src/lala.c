@@ -10,7 +10,6 @@ DECLARE SUB showEnding ()
 DECLARE FUNCTION showTitle% (prefs AS ANY, tileProperties() AS ANY, spriteProperties() AS ANY, tileset%(), spriteset%(), spriteMapping%(), flag%)
 
 DIM spriteset%(0, 0)
-DIM spriteProperties(0) AS TypeSpriteProperties
 */
 
 #undef main
@@ -82,7 +81,7 @@ int main(void)
 	engineLoadTileProperties();
 
 	//engineLoadTileset tileset%(), prefs
-	//engineLoadSpriteProperties spriteProperties(), prefs
+	engineLoadSpriteProperties();
 	//engineLoadSpriteset spriteset%(), prefs
 	engineLoadSpriteMapping();
 

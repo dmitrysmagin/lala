@@ -30,6 +30,31 @@ int spriteMapping[64] = {
 	17,18,19,20,17,18,19,20,
 };
 
+TypeSpriteProperties spriteProperties[64] =
+{
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,7},
+	{4,7},
+	{4,7},
+	{4,7},
+	{4,7},
+	{4,7},
+	{4,7},
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,8},
+	{4,8},
+};
+
 /*
 DEFINT A-Z
 
@@ -312,7 +337,7 @@ void engineInitVals(void)
 	//strncpy(prefs.tilePropertiesFile, "TILEPROP.TXT", 12);
 	strncpy(prefs.backdropFile, "BACKDROP.PCX", 12);
 	strncpy(prefs.spritesetFile, "SPRSET.PCX", 12);
-	strncpy(prefs.spritePropertiesFile, "SPRPROP.TXT", 12);
+	//strncpy(prefs.spritePropertiesFile, "SPRPROP.TXT", 12);
 	//strncpy(prefs.spriteMappingFile, "SPRMAP.TXT", 12);
 	strncpy(prefs.enemsFile, "ENEMS.TXT", 12);
 	strncpy(prefs.hotSpotsFile, "HOTSPOTS.TXT", 12);
@@ -395,21 +420,14 @@ void engineLoadSpriteMapping()
 	// spriteMapping[64] already has it from SPRMAP.TXT
 }
 
-/*
-SUB engineLoadSpriteProperties (spriteProperties() AS TypeSpriteProperties, prefs AS TypePrefs)
-	REDIM spriteProperties(63) AS TypeSpriteProperties
-	f% = FREEFILE
-	index% = 0
-	OPEN "GFX\" + prefs.spritePropertiesFile FOR INPUT AS #f%
-	WHILE NOT EOF(f%)
-		INPUT #f%, spriteProperties(index%).offX
-		INPUT #f%, spriteProperties(index%).offY
-		index% = index% + 1
-	WEND
-	CLOSE #f%
-	prefs.numSprites = index%
-END SUB
+// SUB engineLoadSpriteProperties (spriteProperties() AS TypeSpriteProperties, prefs AS TypePrefs)
+void engineLoadSpriteProperties()
+{
+	// spriteProperties[64] already has it from SPRPROP.TXT
+	prefs.numSprites = 20;
+}
 
+/*
 SUB engineLoadSpriteset (spriteset%(), prefs AS TypePrefs)
 	' sprites are in a 192x192 file (max 64 sprites)
 	' In this game we use 6 for main sprite, 12 for enemies,
