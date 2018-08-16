@@ -88,15 +88,28 @@ int main(void)
 	//DQBfadeTo 0, 0, 0
 	//DQBinitVGA
 
-/*
-' Load blender map
-' This blender map has been created for colours 254 (white) and 255 (black).
-' This way you can easily create nifty "darken"/"brighten" effects easily.
-i% = DQBcreateBMap(1, 254, 255)
-IF i% THEN DQBinitText: PRINT "ERROR creating blender map"; DQBerror$: DQBclose: SYSTEM
-i% = DQBloadBMap(1, "GFX\LALA.BMA")
-IF i% THEN DQBinitText: PRINT "ERROR loading blender map"; DQBerror$: DQBclose: SYSTEM
 
+	// Load blender map
+	// This blender map has been created for colours 254 (white) and 255 (black).
+	// This way you can easily create nifty "darken"/"brighten" effects easily.
+	i = DQBcreateBMap(1, 254, 255);
+
+	if (i) {
+		//DQBinitText();
+		printf("ERROR creating blender map\n" /*DQBerror$*/);
+		DQBclose();
+		exit(1);
+	}
+
+	i = DQBloadBMap(1, "GFX/LALA.BMA");
+	if (i) {
+		//DQBinitText();
+		printf("ERROR loading blender map\n" /*DQBerror$*/);
+		DQBclose();
+		exit(0);
+	}
+
+/*
 ' Loop
 DO
     engineInitGame prefs

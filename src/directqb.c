@@ -42,6 +42,19 @@ void DQBremoveKeyboard()
 {
 }
 
+// Procedures from BLENDING.OBJ:
+
+//DECLARE FUNCTION DQBcreateBMap% (BYVAL BMap%, BYVAL FirstCol%, BYVAL LastCol%)
+int DQBcreateBMap(int BMap, int FirstCol, int LastCol)
+{
+	return 0;
+}
+//DECLARE FUNCTION DQBloadBMap% (BMap%, FileName$)
+int DQBloadBMap(int BMap, char *FileName)
+{
+	return 0;
+}
+
 // Procedures from SOUND.OBJ:
 
 // DECLARE FUNCTION DQBinstallSB% (BYVAL VolActive%, BYVAL Channels%, BYVAL Freq%, BYVAL BaseAddr%, BYVAL IRQ%, BYVAL DMA%)

@@ -130,8 +130,12 @@ DECLARE SUB DQBsetFontTexture (BYVAL TextSeg%, BYVAL TextOff%)
 DECLARE SUB DQBfilterBox (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL Col%, BYVAL BMap%)
 DECLARE SUB DQBbPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%, BYVAL BMap%)
 DECLARE SUB DQBcopyBlendLayer (BYVAL SourceLayer%, BYVAL DestLayer%, BYVAL BMap%)
-DECLARE FUNCTION DQBcreateBMap% (BYVAL BMap%, BYVAL FirstCol%, BYVAL LastCol%)
-DECLARE FUNCTION DQBloadBMap% (BMap%, FileName$)
+*/
+//DECLARE FUNCTION DQBcreateBMap% (BYVAL BMap%, BYVAL FirstCol%, BYVAL LastCol%)
+int DQBcreateBMap(int BMap, int FirstCol, int LastCol);
+//DECLARE FUNCTION DQBloadBMap% (BMap%, FileName$)
+int DQBloadBMap(int BMap, char *FileName);
+/*
 DECLARE FUNCTION DQBsaveBMap% (BMap%, FileName$)
 DECLARE SUB DQBsetBMap (BYVAL BMap%, BYVAL ForeCol%, BYVAL BackCol%, BYVAL NewCol%)
 DECLARE FUNCTION DQBgetBMap% (BYVAL BMap%, BYVAL ForeCol%, BYVAL BackCol%)
