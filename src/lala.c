@@ -8,8 +8,6 @@
 /*
 DECLARE SUB showEnding ()
 DECLARE FUNCTION showTitle% (prefs AS ANY, tileProperties() AS ANY, spriteProperties() AS ANY, tileset%(), spriteset%(), spriteMapping%(), flag%)
-
-DIM spriteset%(0, 0)
 */
 
 #undef main
@@ -80,14 +78,13 @@ int main(void)
 	engineInitVals();
 	engineLoadTileProperties();
 
-	//engineLoadTileset tileset%(), prefs
+	engineLoadTileset();
 	engineLoadSpriteProperties();
-	//engineLoadSpriteset spriteset%(), prefs
+	engineLoadSpriteset();
 	engineLoadSpriteMapping();
 
 	//DQBfadeTo 0, 0, 0
 	//DQBinitVGA
-
 
 	// Load blender map
 	// This blender map has been created for colours 254 (white) and 255 (black).
@@ -137,11 +134,6 @@ LOOP WHILE i%
 endingText:
 DATA "YOU DID IT!", "GOT ALL THE", "POTIONS...", "WELL DONE!"
 DATA "BUT THERE'S", "STILL MUCH", "TO DO!", "SEE YOU SOON!"
-
-REM $DYNAMIC
-SUB calcEnemsFrame (enems() AS TypeEnems, spriteMapping%())
-
-END SUB
 
 REM $STATIC
 SUB showEnding

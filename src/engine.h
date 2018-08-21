@@ -9,9 +9,14 @@ void engineInitVals(void);
 //DECLARE SUB engineLoadTileProperties (tileProperties() AS ANY, prefs AS ANY)
 void engineLoadTileProperties();
 
+//DECLARE SUB engineLoadTileset (tileset%(), prefs AS ANY)
+void engineLoadTileset();
+
+
+//DECLARE SUB engineLoadSpriteset (spriteset%(), prefs AS ANY)
+void engineLoadSpriteset();
+
 /*
-DECLARE SUB engineLoadTileset (tileset%(), prefs AS ANY)
-DECLARE SUB engineLoadSpriteset (spriteset%(), prefs AS ANY)
 DECLARE SUB engineScreenPrepare (nPant%, tileProperties() AS ANY, map%(), curScreenBuff() AS ANY, prefs AS ANY, hotSpots() AS ANY)
 DECLARE SUB engineMapLoad (prefs AS ANY, map%())
 DECLARE SUB engineScreenDrawLayer1 (tileset%(), prefs AS ANY, curScreenBuff() AS ANY)

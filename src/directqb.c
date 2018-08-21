@@ -23,6 +23,36 @@ void DQBclose()
 {
 }
 
+//DECLARE SUB DQBclearLayer (BYVAL Layer%)
+void DQBclearLayer(int Layer)
+{
+}
+
+//DECLARE SUB DQBwait (BYVAL Times%)
+void DQBwait(int Times)
+{
+}
+
+// Procedures from DRAW.OBJ:
+
+//DECLARE SUB DQBget (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL BufSeg%, BYVAL BufOff%)
+void DQBget(int Layer, int x1, int y1, int x2, int y2, char **BufOff)
+{
+}
+
+//DECLARE SUB DQBput (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%)
+void DQBput (int Layer, int x, int y, char *BufOff)
+{
+}
+
+// Procedures from IMAGE.OBJ:
+
+// DECLARE FUNCTION DQBloadImage% (Layer%, x%, y%, FileName$, Pal$, imgWidth%, imgHeight%)
+int DQBloadImage(int Layer, int x, int y, char *FileName, void *Pal, int *imgWidth, int *imgHeight)
+{
+	return 0;
+}
+
 // Procedures from FONT.OBJ:
 
 // DECLARE FUNCTION DQBloadFont% (FileName$)

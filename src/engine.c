@@ -17,11 +17,12 @@ TypeTileProperties tileProperties[] = {
 	{0,0}, {0,0}, {0,0}, {0,0}, {0,0},
 };
 
-/*
-    Originally: DIM tileset%(0 TO 129, prefs.numTiles)
-    FIXME: Assume we have a pointer array of max 240 tiles
-*/
+// Originally: DIM tileset%(0 TO 129, prefs.numTiles)
 char *tileset[240];
+
+// Initially: DIM spriteset%(0, 19)
+char *spriteset[20];
+
 int spriteMapping[64] = {
 	0,1,0,2,1,2,3,4,3,5,4,5,
 	6,7,8,7,6,7,8,7,
@@ -333,10 +334,10 @@ END SUB
 void engineInitVals(void)
 {
 	strncpy(prefs.mapFile, "LALA.MAP", 12);
-	strncpy(prefs.tilesetFile, "TILESET.PCX", 12);
+	//strncpy(prefs.tilesetFile, "TILESET.PCX", 12);
 	//strncpy(prefs.tilePropertiesFile, "TILEPROP.TXT", 12);
 	strncpy(prefs.backdropFile, "BACKDROP.PCX", 12);
-	strncpy(prefs.spritesetFile, "SPRSET.PCX", 12);
+	//strncpy(prefs.spritesetFile, "SPRSET.PCX", 12);
 	//strncpy(prefs.spritePropertiesFile, "SPRPROP.TXT", 12);
 	//strncpy(prefs.spriteMappingFile, "SPRMAP.TXT", 12);
 	strncpy(prefs.enemsFile, "ENEMS.TXT", 12);
@@ -427,25 +428,29 @@ void engineLoadSpriteProperties()
 	prefs.numSprites = 20;
 }
 
-/*
-SUB engineLoadSpriteset (spriteset%(), prefs AS TypePrefs)
-	' sprites are in a 192x192 file (max 64 sprites)
-	' In this game we use 6 for main sprite, 12 for enemies,
-	' 2 for platforms.
-	' 24x24 = 1 + 12*24 integers = 289
-	numSprites% = prefs.numSprites - 1' (20-1)
-	REDIM spriteset%(289, numSprites%)
-	DIM dummy AS STRING * 768
-	i% = DQBloadImage(3, 0, 0, "GFX\" + prefs.spritesetFile, dummy, w%, h%)
-	x% = 0: y% = 0
-	FOR i% = 0 TO numSprites%
-		DQBget 3, x%, y%, 23 + x%, 23 + y%, VARSEG(spriteset%(0, i%)), VARPTR(spriteset%(0, i%))
-		x% = x% + 24
-		IF x% = 192 THEN x% = 0: y% = y% + 24
-	NEXT i%
-	DQBclearLayer 3
-END SUB
-*/
+void engineLoadSpriteset()
+{
+	int i, w, h, x, y;
+
+	// sprites are in a 192x192 file (max 64 sprites)
+	// In this game we use 6 for main sprite, 12 for enemies,
+	// 2 for platforms.
+
+	i = DQBloadImage(3, 0, 0, "GFX//SPRSET.PCX", 0, &w, &h);
+
+	x = 0; y = 0;
+	for (i = 0; i < prefs.numSprites; i++) {
+		DQBget(3, x, y, 23 + x, 23 + y, &spriteset[i]);
+		x += 24;
+		if (x == 192) {
+			x = 0;
+			y += 24;
+		}
+	}
+
+	DQBclearLayer(3);
+}
+
 
 //SUB engineLoadTileProperties (tileProperties() AS TypeTileProperties, prefs AS TypePrefs)
 void engineLoadTileProperties()
@@ -454,19 +459,28 @@ void engineLoadTileProperties()
 	prefs.numTiles = sizeof(tileProperties) / sizeof(tileProperties[0]);
 }
 
-/*
-SUB engineLoadTileset (tileset%(), prefs AS TypePrefs)
-	REDIM tileset%(129, prefs.numTiles)
-	i% = DQBloadImage(3, 0, 0, "GFX\" + prefs.tilesetFile, prefs.pal, w%, h%)
-	x% = 0: y% = 0
-	FOR i% = 0 TO prefs.numTiles - 1
-		DQBget 3, x%, y%, 15 + x%, 15 + y%, VARSEG(tileset%(0, i%)), VARPTR(tileset%(0, i%))
-		x% = x% + 16
-		IF x% = 320 THEN x% = 0: y% = y% + 16
-	NEXT i%
-	DQBclearLayer 3
-END SUB
 
+void engineLoadTileset()
+{
+	int i, w, h, x, y;
+
+	i = DQBloadImage(3, 0, 0, "GFX//TILESET.PCX", prefs.pal, &w, &h);
+
+	x = 0; y = 0;
+	
+	for (i = 0; i < prefs.numTiles; i++) {
+		DQBget(3, x, y, 15 + x, 15 + y, &tileset[i]);
+		x += 16;
+		if (x == 320) {
+			x = 0;
+			y += 16;
+		}
+	}
+
+	DQBclearLayer(3);
+}
+
+/*
 FUNCTION engineMakeNumber$ (digits%, Value%)
 	b$ = LTRIM$(STR$(Value%))
 	IF LEN(b$) < digits% THEN b$ = STRING$(digits - LEN(b$), "0") + b$

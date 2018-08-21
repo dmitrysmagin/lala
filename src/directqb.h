@@ -40,14 +40,19 @@ DECLARE SUB DQBinitVGA ()
 DECLARE SUB DQBinitText ()
 DECLARE FUNCTION DQBsetBaseLayer% (BYVAL Layer%)
 DECLARE SUB DQBcopyLayer (BYVAL SourceLayer%, BYVAL DestLayer%)
-DECLARE SUB DQBclearLayer (BYVAL Layer%)
-DECLARE SUB DQBwait (BYVAL Times%)
+*/
+//DECLARE SUB DQBclearLayer (BYVAL Layer%)
+void DQBclearLayer(int Layer);
+//DECLARE SUB DQBwait (BYVAL Times%)
+void DQBwait(int Times);
+/*
 DECLARE SUB DQBsetFrameRate (BYVAL FPS%)
 DECLARE FUNCTION DQBframeReady% ()
 DECLARE FUNCTION DQBerror$ ()
+*/
 
-' Procedures from DRAW.OBJ:
-DECLARE SUB DQBcopyTransLayer (BYVAL SourceLayer%, BYVAL DestLayer%)
+//' Procedures from DRAW.OBJ:
+/*DECLARE SUB DQBcopyTransLayer (BYVAL SourceLayer%, BYVAL DestLayer%)
 DECLARE SUB DQBcopyHitLayer (BYVAL SourceLayer%, BYVAL DestLayer%, BYVAL Col%)
 DECLARE SUB DQBpset (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL Col%)
 DECLARE FUNCTION DQBpoint% (BYVAL Layer%, BYVAL x%, BYVAL y%)
@@ -61,12 +66,17 @@ DECLARE SUB DQBscroll (BYVAL Layer%, BYVAL dx%, BYVAL dy%)
 DECLARE SUB DQBscrollArea (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL Direction%)
 DECLARE SUB DQBsetTransPut ()
 DECLARE SUB DQBsetSolidPut ()
-DECLARE SUB DQBget (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL BufSeg%, BYVAL BufOff%)
-DECLARE SUB DQBput (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%)
+*/
+//DECLARE SUB DQBget (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL BufSeg%, BYVAL BufOff%)
+void DQBget(int Layer, int x1, int y1, int x2, int y2, char **BufOff);
+//DECLARE SUB DQBput (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%)
+void DQBput (int Layer, int x, int y, char *BufOff);
 
-' Procedures from IMAGE.OBJ:
-DECLARE FUNCTION DQBloadImage% (Layer%, x%, y%, FileName$, Pal$, imgWidth%, imgHeight%)
-DECLARE FUNCTION DQBsaveImage% (Layer%, x1%, y1%, x2%, y2%, FileName$, Pal$, Format%)
+// ' Procedures from IMAGE.OBJ:
+// DECLARE FUNCTION DQBloadImage% (Layer%, x%, y%, FileName$, Pal$, imgWidth%, imgHeight%)
+int DQBloadImage(int Layer, int x, int y, char *FileName, void *Pal, int *imgWidth, int *imgHeight);
+
+/*DECLARE FUNCTION DQBsaveImage% (Layer%, x1%, y1%, x2%, y2%, FileName$, Pal$, Format%)
 DECLARE FUNCTION DQBplayFLI% (FileName$, BufLayer%, KeyStop%, LoopFlag%)
 DECLARE FUNCTION DQBopenFLI% (FileName$, Frames%, Speed%)
 DECLARE SUB DQBplayFLIstep (BYVAL Layer%)
