@@ -1,8 +1,12 @@
 *.exe
 *.o
 *.obj
+*.lib
 *.err
 *.map
 *.dll
 qb
 bin/lala
+spike/RESULT.TXT
+stderr.txt
+stdout.txt

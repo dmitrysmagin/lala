@@ -195,9 +195,9 @@ DQBjoyX PROC
   MOV BP,SP
   MOV DI,[BP+6]
   CMP DI,2
-  JNE NotGamePad1
+  JNE NotGamePadX ; WATCOM: renamed from NotGamePad1 (TASM scoped duplicate labels per PROC)
   SUB DI,2
-NotGamePad1:
+NotGamePadX:
   SHL DI,1
   MOV AX,JoyX[DI]
   SUB AX,JoyCX[DI]

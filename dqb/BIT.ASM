@@ -92,12 +92,12 @@ DQBreadBit PROC
   MOV CX,[BP+6]
   MOV BX,1
   CMP CX,0
-  JE SkipShift1
-FindBit1:
+  JE SkipShiftR ; WATCOM: renamed from SkipShift1 (TASM scoped duplicate labels per PROC)
+FindBitR: ; WATCOM: renamed from FindBit1, see above
   SHL BX,1
   DEC CX
-  JNZ FindBit1
-SkipShift1:
+  JNZ FindBitR
+SkipShiftR:
   TEST AX,BX
   SETNZ AL
   XOR AH,AH
