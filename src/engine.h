@@ -1,67 +1,27 @@
+#ifndef _ENGINE_H_
+#define _ENGINE_H_
 
-//DECLARE SUB engineInitVals (prefsStore() AS ANY)
-void engineInitVals(void);
+#include <stdio.h>
 
-//DECLARE SUB engineLoadPrefs (id%, prefs AS ANY, prefsStore() AS ANY)
-// eliminated
+/* Constants from ENGINE.BI */
+#define FRONT 1
+#define BACK 0
+#define ANIMATED 2
 
+#define DLEFT 1
+#define DRIGHT 2
+#define DUP 3
+#define DDOWN 4
 
-//DECLARE SUB engineLoadTileProperties (tileProperties() AS ANY, prefs AS ANY)
-void engineLoadTileProperties();
+#define STATENORMAL 0
+#define STATEFLICKER 1
 
-//DECLARE SUB engineLoadTileset (tileset%(), prefs AS ANY)
-void engineLoadTileset();
-
-
-//DECLARE SUB engineLoadSpriteset (spriteset%(), prefs AS ANY)
-void engineLoadSpriteset();
-
-/*
-DECLARE SUB engineScreenPrepare (nPant%, tileProperties() AS ANY, map%(), curScreenBuff() AS ANY, prefs AS ANY, hotSpots() AS ANY)
-DECLARE SUB engineMapLoad (prefs AS ANY, map%())
-DECLARE SUB engineScreenDrawLayer1 (tileset%(), prefs AS ANY, curScreenBuff() AS ANY)
-DECLARE SUB engineScreenDrawLayer2 (frame%, tileset%(), prefs AS ANY, curScreenBuff() AS ANY)
-DECLARE SUB engineInitPlayer (player AS ANY, prefs AS ANY)
-DECLARE SUB engineMovePlayer (curScreenBuff() AS ANY, player AS ANY, prefs AS ANY, map%())
-*/
-
-//DECLARE SUB engineLoadSpriteMapping (spriteMapping%(), prefs AS ANY)
-void engineLoadSpriteMapping();
-
-//DECLARE SUB engineLoadSpriteProperties (spriteProperties() AS ANY, prefs AS ANY)
-void engineLoadSpriteProperties();
-
-/*
-DECLARE SUB engineCalcPlayerFrame (player AS ANY, spriteMapping%())
-DECLARE SUB engineCalcEnemsFrame (enems() AS ANY, spriteMapping%(), nPant%, prefs AS ANY)
-DECLARE SUB engineLoadEnems (enems() AS ANY, prefs AS ANY)
-DECLARE SUB engineLoadHotSpots (hotSpots() AS ANY, prefs AS ANY)
-DECLARE SUB engineMoveEnems (enems() AS ANY, curScreenBuff() AS ANY, prefs AS ANY, player AS ANY, nPant%)
-DECLARE SUB enginePrintStats (player AS ANY, prefs AS ANY, tileset%(), spriteset%())
-DECLARE SUB engineRprint (Layer%, Text$, x%, y%, c%)
-DECLARE SUB engineDrawHotSpots (nPant%, tileset%(), prefs AS ANY, hotSpots() AS ANY, hotSpotTiles%())
-DECLARE SUB engineInitGame (prefs AS ANY)
-
-DECLARE FUNCTION cToIdx% (x%, y%)
-DECLARE FUNCTION engineMakeNumber$ (digits%, value%)
-DECLARE FUNCTION engineDetectCollision% (i%, nPant%, enems() AS ANY, player AS ANY)
-DECLARE FUNCTION engineDetectKeyHole% (curScreenBuff() AS ANY, map%(), xx%, yy%)
-DECLARE FUNCTION engineDoGame% (prefs AS ANY, tileProperties() AS ANY, spriteProperties() AS ANY, tileset%(), spriteset%(), spriteMapping%(), flag%)
-
-CONST MAXPREFS = 1
-CONST FRONT = 1
-CONST BACK = 0
-CONST ANIMATED = 2
-CONST CNUMSPRITES = 20
-
-CONST DLEFT = 1
-CONST DRIGHT = 2
-CONST DUP = 3
-CONST DDOWN = 4
-
-CONST STATENORMAL = 0
-CONST STATEFLICKER = 1
-*/
+/* Screen buffer: 20x12 playfield + 1-tile letterbox border all around
+ * laid out as 22-wide rows: (20+2) * (12+2) - ... indexed by cToIdx,
+ * max index (19+1) + (11+1)*22 = 284; QB DIMs 309 entries. */
+#define SBUFF_ENTRIES 309
+/* Map screens: mapW * mapH, enemies use 4 slots per screen. */
+#define ENEM_SLOTS 4
 
 typedef struct {
 	int x;
@@ -69,22 +29,22 @@ typedef struct {
 } Coordinates;
 
 typedef struct {
-	int x;		// X coordinate
-	int y;		// Y coordinate
-	int vx;		// speed on X
-	int vy;		// speed on Y
-	int frame;	// animation frame
-	int facing;	// left or right?
-	int subFrame;	// subframe counter
-	int sprId;	// ID of current sprite in spriteset
-	int gotten;	// on a platform
-	int jumping;	// jumping
-	int ctJump;	// for how long?
-	int lives;	// player lives
-	int objects;	// player objects
-	int score;	// player score
-	int keys;	// player keys
-	int attempt;	// player wants to exit screen
+	int x;		/* X coordinate */
+	int y;		/* Y coordinate */
+	int vx;		/* speed on X */
+	int vy;		/* speed on Y */
+	int frame;	/* animation frame */
+	int facing;	/* left or right? */
+	int subFrame;	/* subframe counter */
+	int sprId;	/* ID of current sprite in spriteset */
+	int gotten;	/* on a platform */
+	int jumping;	/* jumping */
+	int ctJump;	/* for how long? */
+	int lives;	/* player lives */
+	int objects;	/* player objects */
+	int score;	/* player score */
+	int keys;	/* player keys */
+	int attempt;	/* player wants to exit screen */
 	int state;
 	int ctState;
 	int gameOver;
@@ -94,10 +54,10 @@ typedef struct {
 	char mapFile[13];
 	char tilesetFile[13];
 	char backdropFile[13];
-	//char tilePropertiesFile[13];
-	//char spritePropertiesFile[13];
+	char tilePropertiesFile[13];
+	char spritePropertiesFile[13];
 	char spritesetFile[13];
-	//char spriteMappingFile[13];
+	char spriteMappingFile[13];
 	char enemsFile[13];
 	char hotSpotsFile[13];
 	int mapW;
@@ -141,42 +101,81 @@ typedef struct {
 	int flags;
 } TypeTileProperties;
 
-/*
-TYPE TypeTileLayers
-    layer1 AS INTEGER
-    layer2 AS INTEGER
-    behaviour AS INTEGER
-    anim AS INTEGER
-    realMapIndex AS INTEGER
-END TYPE
-*/
+typedef struct {
+	int layer1;
+	int layer2;
+	int behaviour;
+	int anim;
+	int realMapIndex;
+} TypeTileLayers;
 
 typedef struct {
 	int offX, offY;
 } TypeSpriteProperties;
 
-/*
-TYPE TypeHotSpots
-    x AS INTEGER
-    y AS INTEGER
-    t AS INTEGER
-    s AS INTEGER
-END TYPE
+typedef struct {
+	int x;
+	int y;
+	int t;
+	int s;
+} TypeHotSpots;
 
-TYPE TypeEnems
-    x AS INTEGER
-    y AS INTEGER
-    x1 AS INTEGER
-    y1 AS INTEGER
-    x2 AS INTEGER
-    y2 AS INTEGER
-    mx AS INTEGER
-    my AS INTEGER
-    t AS INTEGER
-    facing AS INTEGER
-    frame AS INTEGER
-    subFrame AS INTEGER
-    sprId AS INTEGER
-END TYPE
+typedef struct {
+	int x;
+	int y;
+	int x1;
+	int y1;
+	int x2;
+	int y2;
+	int mx;
+	int my;
+	int t;
+	int facing;
+	int frame;
+	int subFrame;
+	int sprId;
+} TypeEnems;
 
-*/
+/* Shared game state (QB DIM SHARED / globals). */
+extern TypePrefs prefs;
+extern TypePlayer player;
+extern TypeTileProperties tileProperties[60];
+extern char __far *tileset[240];
+extern char __far *spriteset[21];
+extern int spriteMapping[64];
+extern TypeSpriteProperties spriteProperties[64];
+
+/* engine.c */
+void engineInitVals(void);
+void engineLoadTileProperties(void);
+void engineLoadTileset(void);
+void engineLoadSpriteset(void);
+void engineLoadSpriteMapping(void);
+void engineLoadSpriteProperties(void);
+int cToIdx(int x, int y);
+char *engineMakeNumber(int digits, int value);
+int engineDetectCollision(int i, int nPant, TypeEnems __far *enems, TypePlayer *pl);
+int engineDetectKeyHole(TypeTileLayers __far *buff, int __far *map, int xx, int yy);
+void engineCalcPlayerFrame(TypePlayer *pl);
+void engineCalcEnemsFrame(TypeEnems __far *enems, int nPant);
+void engineLoadEnems(TypeEnems __far *enems);
+void engineLoadHotSpots(TypeHotSpots __far *hs);
+void engineMoveEnems(TypeEnems __far *enems, TypeTileLayers __far *buff, int nPant);
+void engineMovePlayer(TypeTileLayers __far *buff, int __far *map);
+void enginePrintStats(void);
+void engineRprint(int layer, const char *text, int x, int y, int c);
+void engineDrawHotSpots(int nPant, TypeHotSpots __far *hs, int *hsTiles);
+void engineInitGame(void);
+void engineInitPlayer(void);
+int __far *engineMapLoad(void);
+void engineScreenPrepare(int nPant, int __far *map, TypeTileLayers __far *buff, TypeHotSpots __far *hs);
+void engineScreenDrawLayer1(TypeTileLayers __far *buff);
+void engineScreenDrawLayer2(int frame, TypeTileLayers __far *buff);
+int engineDoGame(int flag);
+/* QB INPUT# numeric reader (commas/newlines/spaces as separators). */
+int qbReadInt(FILE *f);
+
+/* engtest.c (headless self-test, runs as `lala.exe test`) */
+int engtest_run(void);
+
+#endif /* _ENGINE_H_ */

@@ -10,3 +10,6 @@ bin/lala
 spike/RESULT.TXT
 stderr.txt
 stdout.txt
+bin/TESTLOG.TXT
+bin/LOG.TXT
+bin/CODE.TXT

@@ -879,3 +879,15 @@ FUNCTION VibVal (ind, mode)
 END FUNCTION
 
 */
+
+/* Phase 2 stubs; the FMENGINE.BAS port is Phase 3 (see PORTING.md). */
+#include "fmengine.h"
+
+void FMload(const char *file)
+{
+	(void)file;
+}
+
+void BeSilent(void)
+{
+}

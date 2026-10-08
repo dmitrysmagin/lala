@@ -10,339 +10,87 @@
 TypePrefs prefs;
 TypePlayer player;
 
-TypeTileProperties tileProperties[] = {
-	{0,0}, {1,8}, {1,8}, {1,8}, {1,8}, {0,0}, {0,0}, {0,0}, {1,8},
-	{1,8}, {1,4}, {1,4}, {0,4}, {0,4}, {0,1}, {1,8}, {1,8}, {1,8},
-	{1,8}, {1,8}, {1,4}, {1,4}, {1,10}, {1,4}, {2,0}, {1,0}, {1,0},
-	{1,0}, {2,0}, {1,0}, {1,0}, {1,0}, {0,4}, {1,1}, {0,0}, {0,0},
-	{0,0}, {0,0}, {0,0}, {0,0}, {0,0},
-};
+/* QB REDIMs tileProperties(59); the file holds 41 entries, rest stay 0. */
+TypeTileProperties tileProperties[60];
+
+/* QB REDIMs 64 sprite properties / 64 mapping entries; files hold fewer. */
+TypeSpriteProperties spriteProperties[64];
+int spriteMapping[64];
 
 // Originally: DIM tileset%(0 TO 129, prefs.numTiles)
-char *tileset[240];
+char __far *tileset[240];
 
-// Initially: DIM spriteset%(0, 19)
-char *spriteset[20];
+// QB REDIMs spriteset%(289, numSprites) with numSprites = 21 - 1
+char __far *spriteset[21];
 
-int spriteMapping[64] = {
-	0,1,0,2,1,2,3,4,3,5,4,5,
-	6,7,8,7,6,7,8,7,
-	9,10,11,12,12,11,10,9,
-	13,14,15,16,16,15,14,13,
-	17,18,19,20,17,18,19,20,
-};
+/* Asset paths ("GFX\" + name) must be DGROUP-resident for the DQB
+ * wrappers (they derive the far segment from DS), so build them here
+ * instead of on the caller's stack. Single-threaded DOS: safe. */
+static char assetPath[32];
 
-TypeSpriteProperties spriteProperties[64] =
+static const char *asset(const char *dir, const char *file)
 {
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,7},
-	{4,7},
-	{4,7},
-	{4,7},
-	{4,7},
-	{4,7},
-	{4,7},
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,8},
-	{4,8},
-};
+	sprintf(assetPath, "%s\\%s", dir, file);
+	return assetPath;
+}
 
-/*
-DEFINT A-Z
+/* QB INPUT# numeric item reader: ints separated by commas, spaces,
+ * tabs or newlines, optional leading '-'. Mirrors what the TXT files
+ * hold (see MAP and GFX folders). */
+int qbReadInt(FILE *f)
+{
+	int c, neg = 0, v = 0;
+	do {
+		c = fgetc(f);
+	} while (c == ' ' || c == ',' || c == '\n' || c == '\r' || c == '\t');
+	if (c == '-') {
+		neg = 1;
+		c = fgetc(f);
+	}
+	while (c >= '0' && c <= '9') {
+		v = v * 10 + (c - '0');
+		c = fgetc(f);
+	}
+	return neg ? -v : v;
+}
 
-FUNCTION cToIdx% (x%, y%)
-	' HUGE DISCLAIMER: This funcion has to be modified manually.
-	' Sorry, this is for speed and ease of use. You can cope with it.
-	' I know you can.
-	'cToIdx% = (1+x%) + (1+y%) * 22
-	' Optimized using shifts!
-	' y*22=y*16+y*4+y*2=(ySHL4+ySHL2+ySHL1)
-	yy% = 1 + y%
-	cToIdx% = 1 + x% + DQBshiftLeft(yy%, 4) + DQBshiftLeft(yy%, 2) + DQBshiftLeft(yy%, 1)
-END FUNCTION
+/* True when only separators remain (QB's EOF(f%) for our TXT files). */
+static int qbAtEof(FILE *f)
+{
+	int c;
+	do {
+		c = fgetc(f);
+	} while (c == ' ' || c == ',' || c == '\n' || c == '\r' || c == '\t');
+	if (c == EOF)
+		return 1;
+	ungetc(c, f);
+	return 0;
+}
 
-SUB engineCalcEnemsFrame (enems() AS TypeEnems, spriteMapping%(), nPant%, prefs AS TypePrefs)
-	FOR i% = 0 TO prefs.nEnems - 1
-		IF enems(nPant%, i%).t > 0 THEN
-			' Choose sprite
-			enems(nPant%, i%).subFrame = enems(nPant%, i%).subFrame + 1
-			IF enems(nPant%, i%).subFrame = 4 THEN
-				enems(nPant%, i%).subFrame = 0
-				enems(nPant%, i%).frame = (enems(nPant%, i%).frame + 1) AND 3
-			END IF
-			IF enems(nPant%, i%).mx + enems(nPant%, i%).my > 0 THEN enems(nPant%, i%).facing = 0 ELSE enems(nPant%, i%).facing = 4
-			enems(nPant%, i%).sprId = spriteMapping%(12 + DQBshiftLeft(enems(nPant%, i%).t - 1, 3) + enems(nPant%, i%).facing + enems(nPant%, i%).frame)
-		END IF
-	NEXT i%
-END SUB
-
-SUB engineCalcPlayerFrame (player AS TypePlayer, spriteMapping%())
-   
-	' Calculate frame
-	IF player.vy < 0 THEN
-		player.sprId = spriteMapping%(player.facing + 4)
-	ELSEIF player.vy > 0 THEN
-		player.sprId = spriteMapping%(player.facing + 5)
-	ELSEIF player.vx <> 0 THEN
-		player.sprId = spriteMapping%(player.facing + player.frame)
-		player.subFrame = player.subFrame + 1
-		IF player.subFrame = 4 THEN
-			player.subFrame = 0
-			player.frame = player.frame + 1
-			IF player.frame = 4 THEN player.frame = 0
-		END IF
-	ELSE
-		player.sprId = spriteMapping%(player.facing)
-	END IF
-
-END SUB
-
-FUNCTION engineDetectCollision% (i%, nPant%, enems() AS TypeEnems, player AS TypePlayer)
-	x% = DQBshiftRight(player.x, 6)
-	y% = DQBshiftRight(player.y, 6)
-	engineDetectCollision% = ((player.state = STATENORMAL) AND (enems(nPant%, i%).x >= x% - 14 AND enems(nPant%, i%).x <= x% + 14 AND enems(nPant%, i%).y >= y% - 14 AND enems(nPant%, i%).y <= y% + 14))
-END FUNCTION
-
-FUNCTION engineDetectKeyHole% (curScreenBuff() AS TypeTileLayers, map(), xx%, yy%)
-	res% = 0
-	IF curScreenBuff(cToIdx%(xx%, yy%)).behaviour = 10 THEN
-		curScreenBuff(cToIdx%(xx%, yy%)).layer1 = 0
-		curScreenBuff(cToIdx%(xx%, yy%)).layer2 = 0
-		curScreenBuff(cToIdx%(xx%, yy%)).behaviour = 0
-		map%(curScreenBuff(cToIdx%(xx%, yy%)).realMapIndex) = 0
-		res% = -1
-	END IF
-	engineDetectKeyHole% = res%
-END FUNCTION
-
-FUNCTION engineDoGame% (prefs AS TypePrefs, tileProperties() AS TypeTileProperties, spriteProperties() AS TypeSpriteProperties, tileset%(), spriteset%(), spriteMapping%(), flag%)
-	' Buffer to contain current screen.
-	' Screen area is 20x12, we letterbox it with blank tiles
-	' This is for speed, we avoid lots of checks with this.
-	DIM curScreenBuff(308) AS TypeTileLayers
-	DIM map%(0)
-	DIM enems(prefs.mapW * prefs.mapH - 1, 3) AS TypeEnems
-	DIM hotSpots(prefs.mapW * prefs.mapH - 1) AS TypeHotSpots
-	DIM hotSpotsTiles%(3)
-
-	res% = 0
-	player.gameOver = 0
-	
-	hotSpotsTiles%(1) = prefs.objectTile
-	hotSpotsTiles%(2) = prefs.keyTile
-	hotSpotsTiles%(3) = prefs.lifeTile
-
-	lastRow% = (prefs.mapH - 1) * prefs.mapW
-	lastPant% = prefs.mapH * prefs.mapW - 1
-
-	'debug% = 1
-
-	IF flag% THEN nPant% = prefs.iniPant ELSE nPant% = prefs.mapW * (prefs.mapH - 1)
-
-	engineInitPlayer player, prefs
-
-	IF flag% THEN
-		DQBclearLayer 3
-		i% = DQBloadImage(3, prefs.screenPos.x, prefs.screenPos.y, "GFX\" + prefs.backdropFile, prefs.pal, w%, h%)
-	END IF
-	engineMapLoad prefs, map%()
-	engineLoadEnems enems(), prefs
-	engineLoadHotSpots hotSpots(), prefs
-	engineScreenPrepare nPant%, tileProperties(), map%(), curScreenBuff(), prefs, hotSpots()
-
-	frame% = 0
-	halfLife% = 0
-	subFrame% = 0
-
-	IF flag% THEN
-		' ambient
-		IF prefs.bgL1 THEN DQBplaySound prefs.bgL1, 5, 11025, LOOPED
-		IF prefs.bgL2 THEN DQBplaySound prefs.bgL2, 6, 11025, LOOPED
-
-		' music
-		music$ = LTRIM$(prefs.bgM)
-		IF music$ <> "" THEN FMload "MUSIC\" + music$
-	END IF
-	
-	' Prepare background
-	DQBcopyLayer 3, 2
-
-	engineScreenDrawLayer1 tileset%(), prefs, curScreenBuff()
-   
-	DO WHILE NOT DQBkey(1)
-		halfLife% = 1 - halfLife%
-		subFrame% = (subFrame% + 1) AND 3
-		IF subFrame% = 0 THEN frame% = frame% + 1: IF frame% = 4 THEN frame% = 0
-		' Move stuff
-		IF NOT player.gameOver THEN engineMovePlayer curScreenBuff(), player, prefs, map%()
-		IF halfLife% THEN engineMoveEnems enems(), curScreenBuff(), prefs, player, nPant%
-		' Change screen?
-		IF player.attempt AND flag% THEN
-			SELECT CASE player.attempt
-				CASE DUP:
-					IF nPant% >= prefs.mapW THEN
-						nPant% = nPant% - prefs.mapW
-						player.y = DQBshiftLeft(prefs.screenH - 1, 10)
-					END IF
-				CASE DDOWN:
-					IF nPant% < lastRow% THEN
-						nPant% = nPant% + prefs.mapW
-						player.y = 0
-					END IF
-				CASE DLEFT:
-					IF nPant% > 0 THEN
-						nPant% = nPant% - 1
-						player.x = DQBshiftLeft(prefs.screenW - 1, 10)
-					END IF
-				CASE DRIGHT:
-					IF nPant% < lastPant% THEN
-						nPant% = nPant% + 1
-						player.x = 0
-					END IF
-			END SELECT
-			engineScreenPrepare nPant%, tileProperties(), map%(), curScreenBuff(), prefs, hotSpots()
-			' Prepare background
-			DQBcopyLayer 3, 2
-			engineScreenDrawLayer1 tileset%(), prefs, curScreenBuff()
-		END IF
-		' Checks
-		x% = DQBshiftRight(player.x, 6)
-		y% = DQBshiftRight(player.y, 6)
-		IF x% >= prefs.hotSpotX - 15 AND x% <= prefs.hotSpotX + 15 AND y% >= prefs.hotSpotY - 15 AND y% <= prefs.hotSpotY + 15 THEN
-			hotSpots(nPant%).s = 0
-			SELECT CASE hotSpots(nPant%).t
-				CASE 1:
-					player.objects = player.objects + 1
-					DQBplaySound 6, 4, 11025, ONCE
-				CASE 2:
-					player.keys = player.keys + 1
-					DQBplaySound 4, 4, 11025, ONCE
-				CASE 3:
-					player.lives = player.lives + prefs.refill
-					DQBplaySound 5, 4, 11025, ONCE
-			END SELECT
-			prefs.hotSpotX = 999
-			prefs.hotSpotY = 999
-		END IF
-		' Make frames
-		engineCalcPlayerFrame player, spriteMapping%()
-		engineCalcEnemsFrame enems(), spriteMapping%(), nPant%, prefs
-		' Render
-		DQBcopyLayer 2, 1
-		IF NOT player.gameOver THEN
-			s% = player.sprId
-			IF player.state = STATENORMAL OR halfLife% = 0 THEN
-				DQBput 1, prefs.screenPos.x + x% - spriteProperties(player.sprId).offX, prefs.screenPos.y + y% - spriteProperties(player.sprId).offY, VARSEG(spriteset%(0, s%)), VARPTR(spriteset%(0, s%))
-			END IF
-		END IF
-		FOR i% = 0 TO prefs.nEnems - 1
-			IF enems(nPant%, i%).t > 0 THEN
-				s% = enems(nPant%, i%).sprId
-				DQBput 1, prefs.screenPos.x + enems(nPant%, i%).x - spriteProperties(s%).offX, prefs.screenPos.y + enems(nPant%, i%).y - spriteProperties(s%).offY, VARSEG(spriteset%(0, s%)), VARPTR(spriteset%(0, s%))
-			END IF
-		NEXT i%
-		engineScreenDrawLayer2 frame%, tileset%(), prefs, curScreenBuff()
-		engineDrawHotSpots nPant%, tileset%(), prefs, hotSpots(), hotSpotsTiles%()
-		IF flag% THEN
-			enginePrintStats player, prefs, tileset%(), spriteset%()
-		ELSE
-			IF player.gameOver THEN
-				DQBfilterBox 1, 116, 92, 203, 107, 255, 1
-				DQBprint 1, "GAME OVER", 123, 95, 0
-				DQBprint 1, "GAME OVER", 124, 96, 254
-			ELSE
-				DQBfilterBox 1, 80, 136, 239, 151, 255, 1
-				DQBprint 1, "PRESS ENTER TO PLAY", 89, 141, 0
-				DQBprint 1, "PRESS ENTER TO PLAY", 88, 140, 1
-			END IF
-		END IF
-
-		' Show
-		DQBwait 1
-		DQBcopyLayer 1, VIDEO
-
-		' Cheat
-		IF DQBkey(17) AND DQBkey(18) AND DQBkey(19) THEN
-			WHILE DQBkey(17) OR DQBkey(18) OR DQBkey(19): WEND
-			player.objects = player.objects + 1
-		END IF
-
-		' Exit?
-		IF player.objects = prefs.maxObjs THEN res% = -1: EXIT DO
-		IF player.lives < 0 THEN res% = -2: player.gameOver = -1: flag% = 0
-
-		IF DQBkey(28) THEN IF NOT flag% THEN res% = -3: EXIT DO
-	LOOP
-
-	PLAY STOP
-	BeSilent
-
-	DQBstopVoice 5
-	DQBstopVoice 6
-
-	ERASE curScreenBuff
-	ERASE map
-	ERASE enems
-	ERASE hotSpots
-	
-	engineDoGame% = res%
-END FUNCTION
-
-REM $STATIC
-SUB engineDrawHotSpots (nPant%, tileset%(), prefs AS TypePrefs, hotSpots() AS TypeHotSpots, hotSpotTiles%())
-	IF hotSpots(nPant%).s THEN
-		nTile% = hotSpotTiles%(hotSpots(nPant%).t)
-		x% = DQBshiftLeft(hotSpots(nPant%).x, 4)
-		y% = DQBshiftLeft(hotSpots(nPant%).y, 4)
-		DQBput 1, prefs.screenPos.x + x%, prefs.screenPos.y + y%, VARSEG(tileset%(0, nTile%)), VARPTR(tileset%(0, nTile%))
-	END IF
-END SUB
-
-SUB engineInitGame (prefs AS TypePrefs)
-	player.keys = 0
-	player.lives = prefs.initialLives
-END SUB
-
-REM $DYNAMIC
-SUB engineInitPlayer (player AS TypePlayer, prefs AS TypePrefs)
-	player.x = prefs.iniTX * 16 * 64
-	player.y = prefs.iniTY * 16 * 64
-	player.vx = 0
-	player.vy = 0
-	player.frame = 0
-	player.facing = 0
-	player.subFrame = 0
-	player.sprId = 0
-	player.jumping = 0
-	player.gotten = 0
-	player.ctJump = 0
-	player.state = STATENORMAL
-	player.objects = 0
-END SUB
-*/
 
 // SUB engineInitVals (prefsStore() AS TypePrefs)
 void engineInitVals(void)
 {
 	strncpy(prefs.mapFile, "LALA.MAP", 12);
-	//strncpy(prefs.tilesetFile, "TILESET.PCX", 12);
-	//strncpy(prefs.tilePropertiesFile, "TILEPROP.TXT", 12);
+	strncpy(prefs.tilesetFile, "TILESET.PCX", 12);
+	strncpy(prefs.tilePropertiesFile, "TILEPROP.TXT", 12);
 	strncpy(prefs.backdropFile, "BACKDROP.PCX", 12);
-	//strncpy(prefs.spritesetFile, "SPRSET.PCX", 12);
-	//strncpy(prefs.spritePropertiesFile, "SPRPROP.TXT", 12);
-	//strncpy(prefs.spriteMappingFile, "SPRMAP.TXT", 12);
+	strncpy(prefs.spritesetFile, "SPRSET.PCX", 12);
+	strncpy(prefs.spritePropertiesFile, "SPRPROP.TXT", 12);
+	strncpy(prefs.spriteMappingFile, "SPRMAP.TXT", 12);
 	strncpy(prefs.enemsFile, "ENEMS.TXT", 12);
 	strncpy(prefs.hotSpotsFile, "HOTSPOTS.TXT", 12);
+	/* Filenames are exactly 12 chars; force NUL (struct fields are [13]). */
+	prefs.mapFile[12] = 0;
+	prefs.tilesetFile[12] = 0;
+	prefs.tilePropertiesFile[12] = 0;
+	prefs.backdropFile[12] = 0;
+	prefs.spritesetFile[12] = 0;
+	prefs.spritePropertiesFile[12] = 0;
+	prefs.spriteMappingFile[12] = 0;
+	prefs.enemsFile[12] = 0;
+	prefs.hotSpotsFile[12] = 0;
+	prefs.bgM[12] = 0;
 	prefs.mapW = 6;
 	prefs.mapH = 6;
 	prefs.screenW = 20;
@@ -380,53 +128,31 @@ void engineInitVals(void)
 	prefs.bgL2 = 10;
 }
 
-/*
-SUB engineLoadEnems (enems() AS TypeEnems, prefs AS TypePrefs)
-	maxPants% = prefs.mapW * (prefs.mapH - 1) - 1
-	f% = FREEFILE
-	OPEN "MAP\" + prefs.enemsFile FOR INPUT AS #f%
-	FOR i% = 0 TO maxPants%
-		FOR j% = 0 TO 3
-			INPUT #f%, enems(i%, j%).x
-			INPUT #f%, enems(i%, j%).y
-			INPUT #f%, enems(i%, j%).x1
-			INPUT #f%, enems(i%, j%).y1
-			INPUT #f%, enems(i%, j%).x2
-			INPUT #f%, enems(i%, j%).y2
-			INPUT #f%, enems(i%, j%).mx
-			INPUT #f%, enems(i%, j%).my
-			INPUT #f%, enems(i%, j%).t
-		NEXT j%
-	NEXT i%
-	CLOSE #f%
-END SUB
-
-SUB engineLoadHotSpots (hotSpots() AS TypeHotSpots, prefs AS TypePrefs)
-	maxPants% = prefs.mapW * (prefs.mapH - 1) - 1
-	f% = FREEFILE
-	OPEN "MAP\" + prefs.hotSpotsFile FOR INPUT AS #f%
-	FOR i% = 0 TO maxPants%
-		INPUT #f%, hotSpots(i%).x
-		INPUT #f%, hotSpots(i%).y
-		INPUT #f%, hotSpots(i%).t
-		INPUT #f%, chumi%
-		hotSpots(i%).s = -1
-	NEXT i%
-	CLOSE #f%
-END SUB
-*/
 
 // SUB engineLoadSpriteMapping (spriteMapping%(), prefs AS TypePrefs)
 void engineLoadSpriteMapping()
 {
-	// spriteMapping[64] already has it from SPRMAP.TXT
+	int index = 0;
+	FILE *f = fopen(asset("GFX", prefs.spriteMappingFile), "rt");
+	while (!qbAtEof(f) && index < 64) {
+		spriteMapping[index] = qbReadInt(f);
+		index++;
+	}
+	fclose(f);
 }
 
 // SUB engineLoadSpriteProperties (spriteProperties() AS TypeSpriteProperties, prefs AS TypePrefs)
 void engineLoadSpriteProperties()
 {
-	// spriteProperties[64] already has it from SPRPROP.TXT
-	prefs.numSprites = 20;
+	int index = 0;
+	FILE *f = fopen(asset("GFX", prefs.spritePropertiesFile), "rt");
+	while (!qbAtEof(f) && index < 64) {
+		spriteProperties[index].offX = qbReadInt(f);
+		spriteProperties[index].offY = qbReadInt(f);
+		index++;
+	}
+	fclose(f);
+	prefs.numSprites = index;
 }
 
 void engineLoadSpriteset()
@@ -440,7 +166,7 @@ void engineLoadSpriteset()
 	// In this game we use 6 for main sprite, 12 for enemies,
 	// 2 for platforms.
 
-	i = DQBloadImage(3, 0, 0, "GFX\\SPRSET.PCX", dummyPal, &w, &h);
+	i = DQBloadImage(3, 0, 0, asset("GFX", prefs.spritesetFile), dummyPal, &w, &h);
 
 	x = 0; y = 0;
 	for (i = 0; i < prefs.numSprites; i++) {
@@ -461,8 +187,797 @@ void engineLoadSpriteset()
 //SUB engineLoadTileProperties (tileProperties() AS TypeTileProperties, prefs AS TypePrefs)
 void engineLoadTileProperties()
 {
-	// FIXME: load tileProperties from TILEPROP.TXT
-	prefs.numTiles = sizeof(tileProperties) / sizeof(tileProperties[0]);
+	int index = 0;
+	FILE *f = fopen(asset("MAP", prefs.tilePropertiesFile), "rt");
+	while (!qbAtEof(f) && index < 60) {
+		tileProperties[index].location = qbReadInt(f);
+		tileProperties[index].flags = qbReadInt(f);
+		index++;
+	}
+	fclose(f);
+	prefs.numTiles = index;
+}
+
+/* --- Game logic (translated 1:1 from ENGINE.BAS) --- */
+
+int cToIdx(int x, int y)
+{
+	/* cToIdx% = (1+x%) + (1+y%) * 22, shifts for speed (see BAS). */
+	int yy = 1 + y;
+	return 1 + x + DQBshiftLeft(yy, 4) + DQBshiftLeft(yy, 2) + DQBshiftLeft(yy, 1);
+}
+
+void engineCalcEnemsFrame(TypeEnems __far *enems, int nPant)
+{
+	int i;
+	for (i = 0; i < prefs.nEnems; i++) {
+		if (enems[nPant * ENEM_SLOTS + i].t > 0) {
+			/* Choose sprite */
+			enems[nPant * ENEM_SLOTS + i].subFrame++;
+			if (enems[nPant * ENEM_SLOTS + i].subFrame == 4) {
+				enems[nPant * ENEM_SLOTS + i].subFrame = 0;
+				enems[nPant * ENEM_SLOTS + i].frame =
+					(enems[nPant * ENEM_SLOTS + i].frame + 1) & 3;
+			}
+			if (enems[nPant * ENEM_SLOTS + i].mx + enems[nPant * ENEM_SLOTS + i].my > 0)
+				enems[nPant * ENEM_SLOTS + i].facing = 0;
+			else
+				enems[nPant * ENEM_SLOTS + i].facing = 4;
+			enems[nPant * ENEM_SLOTS + i].sprId =
+				spriteMapping[12 + DQBshiftLeft(enems[nPant * ENEM_SLOTS + i].t - 1, 3) +
+					enems[nPant * ENEM_SLOTS + i].facing + enems[nPant * ENEM_SLOTS + i].frame];
+		}
+	}
+}
+
+void engineCalcPlayerFrame(TypePlayer *pl)
+{
+	/* Calculate frame */
+	if (pl->vy < 0) {
+		pl->sprId = spriteMapping[pl->facing + 4];
+	} else if (pl->vy > 0) {
+		pl->sprId = spriteMapping[pl->facing + 5];
+	} else if (pl->vx != 0) {
+		pl->sprId = spriteMapping[pl->facing + pl->frame];
+		pl->subFrame++;
+		if (pl->subFrame == 4) {
+			pl->subFrame = 0;
+			pl->frame++;
+			if (pl->frame == 4)
+				pl->frame = 0;
+		}
+	} else {
+		pl->sprId = spriteMapping[pl->facing];
+	}
+}
+
+int engineDetectCollision(int i, int nPant, TypeEnems __far *enems, TypePlayer *pl)
+{
+	int x = DQBshiftRight(pl->x, 6);
+	int y = DQBshiftRight(pl->y, 6);
+	return (pl->state == STATENORMAL) &&
+		(enems[nPant * ENEM_SLOTS + i].x >= x - 14 &&
+		 enems[nPant * ENEM_SLOTS + i].x <= x + 14 &&
+		 enems[nPant * ENEM_SLOTS + i].y >= y - 14 &&
+		 enems[nPant * ENEM_SLOTS + i].y <= y + 14);
+}
+
+int engineDetectKeyHole(TypeTileLayers __far *buff, int __far *map, int xx, int yy)
+{
+	int res = 0;
+	if (buff[cToIdx(xx, yy)].behaviour == 10) {
+		buff[cToIdx(xx, yy)].layer1 = 0;
+		buff[cToIdx(xx, yy)].layer2 = 0;
+		buff[cToIdx(xx, yy)].behaviour = 0;
+		map[buff[cToIdx(xx, yy)].realMapIndex] = 0;
+		res = -1;
+	}
+	return res;
+}
+
+void engineInitGame(void)
+{
+	player.keys = 0;
+	player.lives = prefs.initialLives;
+}
+
+void engineInitPlayer(void)
+{
+	player.x = prefs.iniTX * 16 * 64;
+	player.y = prefs.iniTY * 16 * 64;
+	player.vx = 0;
+	player.vy = 0;
+	player.frame = 0;
+	player.facing = 0;
+	player.subFrame = 0;
+	player.sprId = 0;
+	player.jumping = 0;
+	player.gotten = 0;
+	player.ctJump = 0;
+	player.state = STATENORMAL;
+	player.objects = 0;
+}
+
+char *engineMakeNumber(int digits, int value)
+{
+	/* LTRIM$(STR$(value)) zero-padded to digits (values stay >= 0). */
+	static char nbuf[8];
+	sprintf(nbuf, "%0*d", digits, value);
+	return nbuf;
+}
+
+int __far *engineMapLoad(void)
+{
+	int total = prefs.mapW * prefs.mapH * prefs.screenW * prefs.screenH;
+	int __far *map = _fmalloc(total * sizeof(int));
+	int index = 0;
+	FILE *f = fopen(asset("MAP", prefs.mapFile), "rb");
+	while (!feof(f) && index < total) {
+		int c = fgetc(f);
+		if (c == EOF)
+			break;
+		map[index] = c;
+		index++;
+	}
+	fclose(f);
+	return map;
+}
+
+void engineLoadEnems(TypeEnems __far *enems)
+{
+	int maxPants = prefs.mapW * (prefs.mapH - 1) - 1;
+	int i, j;
+	FILE *f = fopen(asset("MAP", prefs.enemsFile), "rt");
+	for (i = 0; i <= maxPants; i++) {
+		for (j = 0; j <= 3; j++) {
+			enems[i * ENEM_SLOTS + j].x = qbReadInt(f);
+			enems[i * ENEM_SLOTS + j].y = qbReadInt(f);
+			enems[i * ENEM_SLOTS + j].x1 = qbReadInt(f);
+			enems[i * ENEM_SLOTS + j].y1 = qbReadInt(f);
+			enems[i * ENEM_SLOTS + j].x2 = qbReadInt(f);
+			enems[i * ENEM_SLOTS + j].y2 = qbReadInt(f);
+			enems[i * ENEM_SLOTS + j].mx = qbReadInt(f);
+			enems[i * ENEM_SLOTS + j].my = qbReadInt(f);
+			enems[i * ENEM_SLOTS + j].t = qbReadInt(f);
+		}
+	}
+	fclose(f);
+}
+
+void engineLoadHotSpots(TypeHotSpots __far *hs)
+{
+	int maxPants = prefs.mapW * (prefs.mapH - 1) - 1;
+	int i, chumi;
+	FILE *f = fopen(asset("MAP", prefs.hotSpotsFile), "rt");
+	for (i = 0; i <= maxPants; i++) {
+		hs[i].x = qbReadInt(f);
+		hs[i].y = qbReadInt(f);
+		hs[i].t = qbReadInt(f);
+		chumi = qbReadInt(f);
+		(void)chumi;
+		hs[i].s = -1;
+	}
+	fclose(f);
+}
+
+void engineScreenPrepare(int nPant, int __far *map, TypeTileLayers __far *buff, TypeHotSpots __far *hs)
+{
+	/* QB: ERASE + REDIM = fresh zeros. */
+	int xPant = nPant % prefs.mapW;
+	int yPant = nPant / prefs.mapW;
+	int mapTileWidth = prefs.mapW * prefs.screenW;
+	int x, y;
+	_fmemset(buff, 0, SBUFF_ENTRIES * sizeof(TypeTileLayers));
+
+	/* Calculate offset in map file */
+	for (y = 0; y < prefs.screenH; y++) {
+		int index = (yPant * prefs.screenH + y) * mapTileWidth + xPant * prefs.screenW;
+		for (x = 0; x < prefs.screenW; x++) {
+			/* We offset +1,+1 our coordinates to make room for a
+			 * blank letterbox. */
+			int yy = y + 1;
+			int iindex = (x + 1) + DQBshiftLeft(yy, 4) + DQBshiftLeft(yy, 2) + DQBshiftLeft(yy, 1);
+			int value = map[index + x];
+			if (tileProperties[value].location == BACK)
+				buff[iindex].layer1 = value;
+			else
+				buff[iindex].layer2 = value;
+			if (tileProperties[value].location == ANIMATED)
+				buff[iindex].anim = -1;
+			else
+				buff[iindex].anim = 0;
+			buff[iindex].behaviour = tileProperties[value].flags;
+			buff[iindex].realMapIndex = index + x;
+		}
+	}
+	if (hs[nPant].s) {
+		prefs.hotSpotX = DQBshiftLeft(hs[nPant].x, 4);
+		prefs.hotSpotY = DQBshiftLeft(hs[nPant].y, 4);
+	} else {
+		prefs.hotSpotX = 999;
+		prefs.hotSpotY = 999;
+	}
+}
+
+void engineScreenDrawLayer1(TypeTileLayers __far *buff)
+{
+	int x = 0, y = 0;
+	int screenPixelW = 16 * prefs.screenW;
+	int idx = 23; /* skip letterbox */
+	int i, j;
+	DQBsetTransPut();
+	for (i = 1; i <= 12; i++) {
+		for (j = 1; j <= 20; j++) {
+			int id = buff[idx].layer1;
+			if (id)
+				DQBput(2, prefs.screenPos.x + x, prefs.screenPos.y + y, tileset[id]);
+			x += 16;
+			if (x == screenPixelW) {
+				x = 0;
+				y += 16;
+			}
+			idx++;
+		}
+		idx += 2; /* skip border */
+	}
+}
+
+void engineScreenDrawLayer2(int frame, TypeTileLayers __far *buff)
+{
+	int x = 0, y = 0;
+	int screenPixelW = 16 * prefs.screenW;
+	int idx = 23; /* skip letterbox */
+	int i, j;
+	DQBsetTransPut();
+	for (i = 1; i <= 12; i++) {
+		for (j = 1; j <= 20; j++) {
+			int id = buff[idx].layer2;
+			if (buff[idx].anim)
+				id += frame;
+			if (id)
+				DQBput(1, prefs.screenPos.x + x, prefs.screenPos.y + y, tileset[id]);
+			x += 16;
+			if (x == screenPixelW) {
+				x = 0;
+				y += 16;
+			}
+			idx++;
+		}
+		idx += 2; /* skip border */
+	}
+}
+
+void engineRprint(int layer, const char *text, int x, int y, int c)
+{
+	/* Shadowed print; text must be DGROUP (literals/statics, not stack). */
+	DQBprint(layer, text, x + 1, y + 1, 255);
+	DQBprint(layer, text, x, y, 254);
+}
+
+/* Number strings for the stats must also be DGROUP (see above). */
+static char statBuf[16];
+
+void enginePrintStats(void)
+{
+	/* You'll probably have to modify this by hand for each game. */
+	DQBput(1, 4, 4, tileset[prefs.objectTile]);
+	DQBput(1, 4, 20, tileset[prefs.keyTile]);
+	DQBput(1, 4, 36, tileset[prefs.lifeTile]);
+	sprintf(statBuf, "x%s", engineMakeNumber(2, player.objects));
+	engineRprint(1, statBuf, 20, 4, 254);
+	sprintf(statBuf, "x%s", engineMakeNumber(2, player.keys));
+	engineRprint(1, statBuf, 20, 20, 254);
+	{
+		int l = player.lives >= 0 ? player.lives : 0;
+		sprintf(statBuf, "x%s", engineMakeNumber(2, l));
+		engineRprint(1, statBuf, 20, 36, 254);
+	}
+}
+
+void engineDrawHotSpots(int nPant, TypeHotSpots __far *hs, int *hsTiles)
+{
+	if (hs[nPant].s) {
+		int nTile = hsTiles[hs[nPant].t];
+		int x = DQBshiftLeft(hs[nPant].x, 4);
+		int y = DQBshiftLeft(hs[nPant].y, 4);
+		DQBput(1, prefs.screenPos.x + x, prefs.screenPos.y + y, tileset[nTile]);
+	}
+}
+
+void engineMoveEnems(TypeEnems __far *enems, TypeTileLayers __far *buff, int nPant)
+{
+	int i;
+	player.gotten = 0;
+	for (i = 0; i < prefs.nEnems; i++) {
+		TypeEnems __far *e = &enems[nPant * ENEM_SLOTS + i];
+		if (e->t > 0) {
+			/* Move */
+			e->x += e->mx;
+			e->y += e->my;
+
+			/* Manage platforms */
+			if (e->t == prefs.enemPlat) {
+				int x = DQBshiftRight(player.x, 6);
+				int y = DQBshiftRight(player.y, 6);
+
+				/* Vertical */
+				if (e->my < 0) {
+					if (x >= e->x - 15 && x <= e->x + 15) {
+						if (y >= e->y - 16 && y <= e->y - 9) {
+							if (player.vy >= -prefs.jumpIncr) {
+								int xx, yy;
+								player.gotten = 1;
+								player.y = DQBshiftLeft(e->y - 16, 6);
+								player.vy = 0;
+								xx = DQBshiftRight(x, 4);
+								yy = DQBshiftRight(y, 4);
+								if (buff[cToIdx(xx, yy)].behaviour > 7 ||
+									((x & 15) != 0 && buff[cToIdx(xx + 1, yy)].behaviour > 7)) {
+									player.y = DQBshiftLeft(yy + 1, 10);
+								}
+							}
+						}
+					}
+				} else if (e->my > 0) {
+					if (x >= e->x - 15 && x <= e->x + 15) {
+						if (y >= e->y - 20 && y <= e->y - 14) {
+							if (player.vy >= 0) {
+								int xx, yy;
+								player.gotten = 1;
+								player.y = DQBshiftLeft(e->y - 16, 6);
+								player.vy = 0;
+								xx = DQBshiftRight(x, 4);
+								yy = DQBshiftRight(y, 4);
+								if (buff[cToIdx(xx, yy + 1)].behaviour > 3 ||
+									((x & 15) != 0 && buff[cToIdx(xx + 1, yy + 1)].behaviour > 3)) {
+									player.y = DQBshiftLeft(yy, 10);
+								}
+							}
+						}
+					}
+				}
+
+				/* Horizontal */
+				if (e->mx != 0) {
+					if (x >= e->x - 15 && x <= e->x + 15) {
+						if (y >= e->y - 16 && y <= e->y - 11) {
+							if (player.vy >= 0) {
+								int xx, yy;
+								player.gotten = 1;
+								player.y = DQBshiftLeft(e->y - 16, 6);
+								x = x + e->mx;
+								player.x = DQBshiftLeft(x, 6);
+								xx = DQBshiftRight(x, 4);
+								yy = DQBshiftRight(y, 4);
+								if (e->mx < 0) {
+									if (buff[cToIdx(xx, yy)].behaviour > 7 ||
+										((y & 15) != 0 && buff[cToIdx(xx, yy + 1)].behaviour > 7)) {
+										player.vx = 0;
+										player.x = DQBshiftLeft(xx + 1, 10);
+									}
+								} else if (e->mx > 0) {
+									if (buff[cToIdx(xx + 1, yy)].behaviour > 7 ||
+										((y & 15) != 0 && buff[cToIdx(xx + 1, yy + 1)].behaviour > 7)) {
+										player.vx = 0;
+										player.x = DQBshiftLeft(xx, 10);
+									}
+								}
+							}
+						}
+					}
+				}
+			} else {
+				/* Detect collision */
+				if (engineDetectCollision(i, nPant, enems, &player)) {
+					player.state = STATEFLICKER;
+					player.ctState = 128;
+					/* player vy, vx calculate. Repelled, double menem */
+					if (e->mx > 0)
+						player.vx = DQBshiftLeft(prefs.walkVxMax, 1);
+					else
+						player.vx = -(DQBshiftLeft(prefs.walkVxMax, 1));
+					if (e->my > 0)
+						player.vy = DQBshiftLeft(prefs.walkVxMax, 1);
+					else
+						player.vy = -(DQBshiftLeft(prefs.walkVxMax, 1));
+					/* Kill a bit */
+					player.lives--;
+					DQBplaySound(2, 4, 11025, ONCE);
+					DQBplaySound(8, 3, 11025, ONCE);
+				}
+			}
+
+			/* Limits */
+			if (e->x == e->x1 || e->x == e->x2)
+				e->mx = -e->mx;
+			if (e->y == e->y1 || e->y == e->y2)
+				e->my = -e->my;
+		}
+	}
+}
+
+void engineMovePlayer(TypeTileLayers __far *buff, int __far *map)
+{
+	int x, y, xx, yy, res;
+	player.attempt = 0;
+	/* State */
+	if (player.state == STATEFLICKER) {
+		player.ctState--;
+		if (player.ctState == 0)
+			player.state = STATENORMAL;
+	}
+
+	/* Vertical */
+	player.vy += prefs.g;
+	if (player.vy > prefs.gMaxVy)
+		player.vy = prefs.gMaxVy;
+	player.y += player.vy;
+	if (player.y < 0) {
+		player.y = 0;
+		player.attempt = DUP;
+	}
+	if (player.y > 11264) {
+		player.y = 11264;
+		player.attempt = DDOWN;
+	}
+
+	/* If on movable platform... */
+	if (player.gotten)
+		player.vy = 0;
+
+	y = DQBshiftRight(player.y, 6);
+	yy = DQBshiftRight(y, 4);
+	x = DQBshiftRight(player.x, 6);
+	xx = DQBshiftRight(x, 4);
+
+	/* Collision? undo to tile boundary */
+	if (player.vy < 0) {
+		if (buff[cToIdx(xx, yy)].behaviour > 7 ||
+			((x & 15) != 0 && buff[cToIdx(xx + 1, yy)].behaviour > 7)) {
+			player.vy += DQBshiftRight(prefs.jumpIncr, 1); /* 0 */
+			player.y = DQBshiftLeft(yy + 1, 10);
+		}
+	} else if (player.vy > 0 && (y & 15) <= DQBshiftRight(prefs.gMaxVy, 6)) {
+		if (buff[cToIdx(xx, yy + 1)].behaviour > 3 ||
+			((x & 15) != 0 && buff[cToIdx(xx + 1, yy + 1)].behaviour > 3)) {
+			player.vy = 0;
+			player.y = DQBshiftLeft(yy, 10);
+		}
+	}
+
+	/* Do jump (CTRL or UP) */
+	if (DQBkey(0x1D) || DQBkey(0x48)) {
+		if (player.vy == 0 && !player.jumping) {
+			if (player.gotten ||
+				(buff[cToIdx(xx, yy + 1)].behaviour > 3 ||
+				 ((x & 15) != 0 && buff[cToIdx(xx + 1, yy + 1)].behaviour > 3))) {
+				player.jumping = -1;
+				player.ctJump = 0;
+				DQBplaySound(3, 1, 11025 + (rand() >> 5), ONCE);
+				player.x = DQBshiftLeft(x, 6);
+			}
+		}
+		if (player.jumping) {
+			player.vy -= prefs.jumpVyInitial + prefs.jumpIncr - DQBshiftRight(player.ctJump, 1);
+			if (player.vy < -prefs.jumpVyMax)
+				player.vy = -prefs.jumpVyMax;
+			player.ctJump++;
+			if (player.ctJump == 16)
+				player.jumping = 0;
+		}
+	} else {
+		player.jumping = 0;
+	}
+
+	/* Horizontal */
+	if (!(DQBkey(0x4B) || DQBkey(0x4D))) {
+		if (player.vx > 0) {
+			player.vx -= prefs.walkFr;
+			if (player.vx < 0) {
+				player.vx = 0;
+				player.x = DQBshiftLeft(x, 6);
+			}
+		} else if (player.vx < 0) {
+			player.vx += prefs.walkFr;
+			if (player.vx > 0) {
+				player.vx = 0;
+				player.x = DQBshiftLeft(x, 6);
+			}
+		}
+	}
+
+	if (DQBkey(0x4B)) {
+		if (player.vx > -prefs.walkVxMax) {
+			player.facing = 6;
+			player.vx -= prefs.walkAx;
+		}
+	}
+
+	if (DQBkey(0x4D)) {
+		if (player.vx < prefs.walkVxMax) {
+			player.facing = 0;
+			player.vx += prefs.walkAx;
+		}
+	}
+
+	player.x += player.vx;
+	if (player.x < 0) {
+		player.x = 0;
+		player.attempt = DLEFT;
+	}
+	if (player.x > 19456) {
+		player.x = 19456;
+		player.attempt = DRIGHT;
+	}
+
+	/* Collision? undo to tile boundary */
+	y = DQBshiftRight(player.y, 6);
+	yy = DQBshiftRight(y, 4);
+	x = DQBshiftRight(player.x, 6);
+	xx = DQBshiftRight(x, 4);
+
+	if (player.vx < 0) {
+		if (buff[cToIdx(xx, yy)].behaviour > 7 ||
+			((y & 15) != 0 && buff[cToIdx(xx, yy + 1)].behaviour > 7)) {
+			player.vx = 0;
+			player.x = DQBshiftLeft(xx + 1, 10);
+		}
+	} else if (player.vx > 0) {
+		if (buff[cToIdx(xx + 1, yy)].behaviour > 7 ||
+			((y & 15) != 0 && buff[cToIdx(xx + 1, yy + 1)].behaviour > 7)) {
+			player.vx = 0;
+			player.x = DQBshiftLeft(xx, 10);
+		}
+	} else {
+		player.x = DQBshiftLeft(x, 6);
+	}
+
+	x = DQBshiftRight(player.x, 6);
+	xx = DQBshiftRight(x, 4);
+
+	/* Open keyhole */
+	if ((y & 15) == 0 && (x & 15) == 0 && player.keys > 0) {
+		res = 0;
+		if (DQBkey(0x4B))
+			res = engineDetectKeyHole(buff, map, xx - 1, yy);
+		if (DQBkey(0x4D))
+			res = engineDetectKeyHole(buff, map, xx + 1, yy);
+		if (res) {
+			player.keys--;
+			DQBplaySound(1, 2, 11025, ONCE);
+		}
+	}
+
+	/* Evil tile */
+	if (buff[cToIdx(xx, yy)].behaviour == 1 ||
+		((x & 15) != 0 && buff[cToIdx(xx + 1, yy)].behaviour == 1) ||
+		((y & 15) != 0 && buff[cToIdx(xx, yy + 1)].behaviour == 1) ||
+		((x & 15) != 0 && (y & 15) != 0 && buff[cToIdx(xx + 1, yy + 1)].behaviour == 1)) {
+		DQBplaySound(7, 4, 11025, ONCE);
+		if (player.state == STATENORMAL) {
+			DQBplaySound(8, 3, 11025 + (rand() >> 5), ONCE);
+			player.lives--;
+			player.state = STATEFLICKER;
+			player.ctState = 128;
+		}
+		if (player.vy < 0) {
+			player.vy = prefs.gMaxVy;
+			player.y = DQBshiftLeft(yy + 1, 10);
+		} else {
+			player.vy = -prefs.gMaxVy;
+			player.y = DQBshiftLeft(yy, 10);
+		}
+	}
+}
+
+int engineDoGame(int flag)
+{
+	/* Buffer to contain current screen.
+	 * Screen area is 20x12, letterboxed with blank tiles
+	 * (avoids lots of checks, and matches cToIdx layout). */
+	TypeTileLayers __far *curScreenBuff = _fcalloc(SBUFF_ENTRIES, sizeof(TypeTileLayers));
+	int __far *map;
+	TypeEnems __far *enems = _fcalloc((prefs.mapW * prefs.mapH) * ENEM_SLOTS, sizeof(TypeEnems));
+	TypeHotSpots __far *hotSpots = _fcalloc(prefs.mapW * prefs.mapH, sizeof(TypeHotSpots));
+	int hotSpotsTiles[4];
+	int res = 0;
+	int lastRow, lastPant, nPant;
+	int frame, halfLife, subFrame;
+	int w, h;
+
+	player.gameOver = 0;
+
+	hotSpotsTiles[1] = prefs.objectTile;
+	hotSpotsTiles[2] = prefs.keyTile;
+	hotSpotsTiles[3] = prefs.lifeTile;
+
+	lastRow = (prefs.mapH - 1) * prefs.mapW;
+	lastPant = prefs.mapH * prefs.mapW - 1;
+
+	if (flag)
+		nPant = prefs.iniPant;
+	else
+		nPant = prefs.mapW * (prefs.mapH - 1);
+
+	engineInitPlayer();
+
+	if (flag) {
+		DQBclearLayer(3);
+		DQBloadImage(3, prefs.screenPos.x, prefs.screenPos.y,
+			asset("GFX", prefs.backdropFile), prefs.pal, &w, &h);
+	}
+	map = engineMapLoad();
+	engineLoadEnems(enems);
+	engineLoadHotSpots(hotSpots);
+	engineScreenPrepare(nPant, map, curScreenBuff, hotSpots);
+
+	frame = 0;
+	halfLife = 0;
+	subFrame = 0;
+
+	if (flag) {
+		/* ambient */
+		if (prefs.bgL1)
+			DQBplaySound(prefs.bgL1, 5, 11025, LOOPED);
+		if (prefs.bgL2)
+			DQBplaySound(prefs.bgL2, 6, 11025, LOOPED);
+
+		/* music (Phase 3; FMload is a stub for now) */
+		if (prefs.bgM[0])
+			FMload(asset("MUSIC", prefs.bgM));
+	}
+
+	/* Prepare background */
+	DQBcopyLayer(3, 2);
+
+	engineScreenDrawLayer1(curScreenBuff);
+
+	while (!DQBkey(1)) {
+		int x, y, i, s;
+		halfLife = 1 - halfLife;
+		subFrame = (subFrame + 1) & 3;
+		if (subFrame == 0) {
+			frame++;
+			if (frame == 4)
+				frame = 0;
+		}
+		/* Move stuff */
+		if (!player.gameOver)
+			engineMovePlayer(curScreenBuff, map);
+		if (halfLife)
+			engineMoveEnems(enems, curScreenBuff, nPant);
+		/* Change screen? */
+		if (player.attempt && flag) {
+			switch (player.attempt) {
+			case DUP:
+				if (nPant >= prefs.mapW) {
+					nPant -= prefs.mapW;
+					player.y = DQBshiftLeft(prefs.screenH - 1, 10);
+				}
+				break;
+			case DDOWN:
+				if (nPant < lastRow) {
+					nPant += prefs.mapW;
+					player.y = 0;
+				}
+				break;
+			case DLEFT:
+				if (nPant > 0) {
+					nPant--;
+					player.x = DQBshiftLeft(prefs.screenW - 1, 10);
+				}
+				break;
+			case DRIGHT:
+				if (nPant < lastPant) {
+					nPant++;
+					player.x = 0;
+				}
+				break;
+			}
+			engineScreenPrepare(nPant, map, curScreenBuff, hotSpots);
+			/* Prepare background */
+			DQBcopyLayer(3, 2);
+			engineScreenDrawLayer1(curScreenBuff);
+		}
+		/* Checks */
+		x = DQBshiftRight(player.x, 6);
+		y = DQBshiftRight(player.y, 6);
+		if (x >= prefs.hotSpotX - 15 && x <= prefs.hotSpotX + 15 &&
+			y >= prefs.hotSpotY - 15 && y <= prefs.hotSpotY + 15) {
+			hotSpots[nPant].s = 0;
+			switch (hotSpots[nPant].t) {
+			case 1:
+				player.objects++;
+				DQBplaySound(6, 4, 11025, ONCE);
+				break;
+			case 2:
+				player.keys++;
+				DQBplaySound(4, 4, 11025, ONCE);
+				break;
+			case 3:
+				player.lives += prefs.refill;
+				DQBplaySound(5, 4, 11025, ONCE);
+				break;
+			}
+			prefs.hotSpotX = 999;
+			prefs.hotSpotY = 999;
+		}
+		/* Make frames */
+		engineCalcPlayerFrame(&player);
+		engineCalcEnemsFrame(enems, nPant);
+		/* Render */
+		DQBcopyLayer(2, 1);
+		if (!player.gameOver) {
+			s = player.sprId;
+			if (player.state == STATENORMAL || halfLife == 0) {
+				DQBput(1, prefs.screenPos.x + x - spriteProperties[player.sprId].offX,
+					prefs.screenPos.y + y - spriteProperties[player.sprId].offY,
+					spriteset[s]);
+			}
+		}
+		for (i = 0; i < prefs.nEnems; i++) {
+			if (enems[nPant * ENEM_SLOTS + i].t > 0) {
+				s = enems[nPant * ENEM_SLOTS + i].sprId;
+				DQBput(1, prefs.screenPos.x + enems[nPant * ENEM_SLOTS + i].x - spriteProperties[s].offX,
+					prefs.screenPos.y + enems[nPant * ENEM_SLOTS + i].y - spriteProperties[s].offY,
+					spriteset[s]);
+			}
+		}
+		engineScreenDrawLayer2(frame, curScreenBuff);
+		engineDrawHotSpots(nPant, hotSpots, hotSpotsTiles);
+		if (flag) {
+			enginePrintStats();
+		} else {
+			if (player.gameOver) {
+				DQBfilterBox(1, 116, 92, 203, 107, 255, 1);
+				DQBprint(1, "GAME OVER", 123, 95, 0);
+				DQBprint(1, "GAME OVER", 124, 96, 254);
+			} else {
+				DQBfilterBox(1, 80, 136, 239, 151, 255, 1);
+				DQBprint(1, "PRESS ENTER TO PLAY", 89, 141, 0);
+				DQBprint(1, "PRESS ENTER TO PLAY", 88, 140, 1);
+			}
+		}
+		/* Show */
+		DQBwait(1);
+		DQBcopyLayer(1, VIDEO);
+
+		/* Cheat */
+		if (DQBkey(17) && DQBkey(18) && DQBkey(19)) {
+			while (DQBkey(17) || DQBkey(18) || DQBkey(19))
+				;
+			player.objects++;
+		}
+
+		/* Exit? */
+		if (player.objects == prefs.maxObjs) {
+			res = -1;
+			break;
+		}
+		if (player.lives < 0) {
+			res = -2;
+			player.gameOver = -1;
+			flag = 0;
+		}
+
+		if (DQBkey(28) && !flag) {
+			res = -3;
+			break;
+		}
+	}
+
+	/* PLAY STOP (Phase 3: music stop) */
+	BeSilent();
+
+	DQBstopVoice(5);
+	DQBstopVoice(6);
+
+	_ffree(curScreenBuff);
+	_ffree(map);
+	_ffree(enems);
+	_ffree(hotSpots);
+
+	return res;
 }
 
 
@@ -470,7 +985,7 @@ void engineLoadTileset()
 {
 	int i, w, h, x, y;
 
-	i = DQBloadImage(3, 0, 0, "GFX\\TILESET.PCX", prefs.pal, &w, &h);
+	i = DQBloadImage(3, 0, 0, asset("GFX", prefs.tilesetFile), prefs.pal, &w, &h);
 
 	x = 0; y = 0;
 	
@@ -487,374 +1002,4 @@ void engineLoadTileset()
 
 	DQBclearLayer(3);
 }
-
-/*
-FUNCTION engineMakeNumber$ (digits%, Value%)
-	b$ = LTRIM$(STR$(Value%))
-	IF LEN(b$) < digits% THEN b$ = STRING$(digits - LEN(b$), "0") + b$
-	engineMakeNumber$ = b$
-END FUNCTION
-
-SUB engineMapLoad (prefs AS TypePrefs, map%())
-	REDIM map%(prefs.mapW * prefs.mapH * prefs.screenW * prefs.screenH)
-	DIM d AS STRING * 1
-	f% = FREEFILE
-	index% = 0
-	OPEN "MAP\" + prefs.mapFile FOR BINARY AS #f%
-	WHILE NOT EOF(f%)
-		GET #f%, , d
-		map%(index%) = ASC(d)
-		index% = index% + 1
-	WEND
-	CLOSE #f%
-END SUB
-
-SUB engineMoveEnems (enems() AS TypeEnems, curScreenBuff() AS TypeTileLayers, prefs AS TypePrefs, player AS TypePlayer, nPant%)
-	player.gotten = 0
-	FOR i% = 0 TO prefs.nEnems - 1
-		IF enems(nPant%, i%).t > 0 THEN
-			' Move
-			enems(nPant%, i%).x = enems(nPant%, i%).x + enems(nPant%, i%).mx
-			enems(nPant%, i%).y = enems(nPant%, i%).y + enems(nPant%, i%).my
-		  
-			' Manage platforms
-			IF enems(nPant%, i%).t = prefs.enemPlat THEN
-				x% = DQBshiftRight(player.x, 6)
-				y% = DQBshiftRight(player.y, 6)
-
-				' Vertical
-				IF enems(nPant%, i%).my < 0 THEN
-					IF x% >= enems(nPant%, i%).x - 15 AND x% <= enems(nPant%, i%).x + 15 THEN
-						IF y% >= enems(nPant%, i%).y - 16 AND y% <= enems(nPant%, i%).y - 9 THEN
-							IF player.vy >= -prefs.jumpIncr THEN
-								player.gotten = 1
-								player.y = DQBshiftLeft(enems(nPant%, i%).y - 16, 6)
-								player.vy = 0
-								xx% = DQBshiftRight(x%, 4)
-								yy% = DQBshiftRight(y%, 4)
-								IF curScreenBuff(cToIdx%(xx%, yy%)).behaviour > 7 OR ((x% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx% + 1, yy%)).behaviour > 7) THEN
-									player.y = DQBshiftLeft(yy% + 1, 10)
-								END IF
-							END IF
-						END IF
-					END IF
-				ELSEIF enems(nPant%, i%).my > 0 THEN
-					IF x% >= enems(nPant%, i%).x - 15 AND x% <= enems(nPant%, i%).x + 15 THEN
-						IF y% >= enems(nPant%, i%).y - 20 AND y% <= enems(nPant%, i%).y - 14 THEN
-							IF player.vy >= 0 THEN
-								player.gotten = 1
-								player.y = DQBshiftLeft(enems(nPant%, i%).y - 16, 6)
-								player.vy = 0
-								xx% = DQBshiftRight(x%, 4)
-								yy% = DQBshiftRight(y%, 4)
-								IF curScreenBuff(cToIdx%(xx%, yy% + 1)).behaviour > 3 OR ((x% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx% + 1, yy% + 1)).behaviour > 3) THEN
-									player.y = DQBshiftLeft(yy%, 10)
-								END IF
-							END IF
-						END IF
-					END IF
-				END IF
-				
-				' Horizontal
-				IF enems(nPant%, i%).mx <> 0 THEN
-					IF x% >= enems(nPant%, i%).x - 15 AND x% <= enems(nPant%, i%).x + 15 THEN
-						IF y% >= enems(nPant%, i%).y - 16 AND y% <= enems(nPant%, i%).y - 11 THEN
-							IF player.vy >= 0 THEN
-								player.gotten = 1
-								player.y = DQBshiftLeft(enems(nPant%, i%).y - 16, 6)
-								x% = x% + enems(nPant%, i%).mx
-								player.x = DQBshiftLeft(x%, 6)
-								xx% = DQBshiftRight(x%, 4)
-								yy% = DQBshiftRight(y%, 4)
-								IF enems(nPant%, i%).mx < 0 THEN
-									IF curScreenBuff(cToIdx%(xx%, yy%)).behaviour > 7 OR ((y% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx%, yy% + 1)).behaviour > 7) THEN
-										player.vx = 0
-										player.x = DQBshiftLeft(xx% + 1, 10)
-									END IF
-								ELSEIF enems(nPant%, i%).mx > 0 THEN
-									IF curScreenBuff(cToIdx%(xx% + 1, yy%)).behaviour > 7 OR ((y% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx% + 1, yy% + 1)).behaviour > 7) THEN
-										player.vx = 0
-										player.x = DQBshiftLeft(xx%, 10)
-									END IF
-								END IF
-							END IF
-						END IF
-					END IF
-				END IF
-			ELSE
-				' Detect collision
-				IF engineDetectCollision(i%, nPant%, enems(), player) THEN
-					player.state = STATEFLICKER
-					player.ctState = 128
-					' player vy, vx calculate. Repelled, double menem
-					'player.vx = SGN(DQBshiftRight(player.x, 6) - enems(nPant%, i%).x) * DQBshiftRight(enems(nPant%, i%).mx, 6)
-					'player.vy = SGN(DQBshiftRight(player.y, 6) - enems(nPant%, i%).y) * DQBshiftRight(enems(nPant%, i%).my, 6)
-					IF enems(nPant%, i%).mx > 0 THEN player.vx = DQBshiftLeft(prefs.walkVxMax, 1) ELSE player.vx = -(DQBshiftLeft(prefs.walkVxMax, 1))
-					IF enems(nPant%, i%).my > 0 THEN player.vy = DQBshiftLeft(prefs.walkVxMax, 1) ELSE player.vy = -(DQBshiftLeft(prefs.walkVxMax, 1))
-					' Kill a bit
-					player.lives = player.lives - 1
-					DQBplaySound 2, 4, 11025, ONCE
-					DQBplaySound 8, 3, 11025, ONCE
-				END IF
-			END IF
-
-			' Limits
-			IF enems(nPant%, i%).x = enems(nPant%, i%).x1 OR enems(nPant%, i%).x = enems(nPant%, i%).x2 THEN
-				enems(nPant%, i%).mx = -enems(nPant%, i%).mx
-			END IF
-			IF enems(nPant%, i%).y = enems(nPant%, i%).y1 OR enems(nPant%, i%).y = enems(nPant%, i%).y2 THEN
-				enems(nPant%, i%).my = -enems(nPant%, i%).my
-			END IF
-		END IF
-	NEXT i%
-END SUB
-
-REM $STATIC
-DEFSNG A-Z
-SUB engineMovePlayer (curScreenBuff() AS TypeTileLayers, player AS TypePlayer, prefs AS TypePrefs, map%())
-	player.attempt = 0
-	' State
-	IF player.state = STATEFLICKER THEN
-		player.ctState = player.ctState - 1
-		IF player.ctState = 0 THEN
-			player.state = STATENORMAL
-		END IF
-	END IF
-
-	' Vertical
-	player.vy = player.vy + prefs.g
-	IF player.vy > prefs.gMaxVy THEN player.vy = prefs.gMaxVy
-	player.y = player.y + player.vy
-	IF player.y < 0 THEN player.y = 0: player.attempt = DUP
-	IF player.y > 11264 THEN player.y = 11264: player.attempt = DDOWN
-
-	' If on movable platform...
-	IF player.gotten THEN player.vy = 0
-											
-	y% = DQBshiftRight(player.y, 6)
-	yy% = DQBshiftRight(y%, 4)
-	x% = DQBshiftRight(player.x, 6)
-	xx% = DQBshiftRight(x%, 4)
-
-	' Collision? undo to tile boundary
-
-	IF player.vy < 0 THEN
-		IF curScreenBuff(cToIdx%(xx%, yy%)).behaviour > 7 OR ((x% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx% + 1, yy%)).behaviour > 7) THEN
-			player.vy = player.vy + DQBshiftRight(prefs.jumpIncr, 1)    ' 0
-			player.y = DQBshiftLeft(yy% + 1, 10)
-		END IF
-	ELSEIF player.vy > 0 AND (y% AND 15) <= DQBshiftRight(prefs.gMaxVy, 6) THEN
-		IF curScreenBuff(cToIdx%(xx%, yy% + 1)).behaviour > 3 OR ((x% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx% + 1, yy% + 1)).behaviour > 3) THEN
-			player.vy = 0
-			player.y = DQBshiftLeft(yy%, 10)
-		END IF
-	END IF
-
-	' Do jump (CTRL or UP)
-	IF DQBkey(&H1D) OR DQBkey(&H48) THEN
-		IF player.vy = 0 AND NOT player.jumping THEN
-			IF player.gotten OR (curScreenBuff(cToIdx%(xx%, yy% + 1)).behaviour > 3 OR ((x% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx% + 1, yy% + 1)).behaviour > 3)) THEN
-				player.jumping = -1
-				player.ctJump = 0
-				DQBplaySound 3, 1, 11025 + INT(RND * 1024), ONCE
-				player.x = DQBshiftLeft(x%, 6)
-			END IF
-		END IF
-		IF player.jumping THEN
-			player.vy = player.vy - (prefs.jumpVyInitial + prefs.jumpIncr - DQBshiftRight(player.ctJump, 1))
-			IF player.vy < -prefs.jumpVyMax THEN player.vy = -prefs.jumpVyMax
-			player.ctJump = player.ctJump + 1
-			IF player.ctJump = 16 THEN
-				player.jumping = 0
-			END IF
-		END IF
-	ELSE
-		player.jumping = 0
-	END IF
-
-	' Horizontal
-
-	IF NOT (DQBkey(&H4B) OR DQBkey(&H4D)) THEN
-		IF player.vx > 0 THEN
-			player.vx = player.vx - prefs.walkFr
-			IF player.vx < 0 THEN player.vx = 0: player.x = DQBshiftLeft(x%, 6)
-		ELSEIF player.vx < 0 THEN
-			player.vx = player.vx + prefs.walkFr
-			IF player.vx > 0 THEN player.vx = 0: player.x = DQBshiftLeft(x%, 6)
-		END IF
-	END IF
-
-	IF DQBkey(&H4B) THEN
-		IF player.vx > -prefs.walkVxMax THEN
-			player.facing = 6
-			player.vx = player.vx - prefs.walkAx
-		END IF
-	END IF
-
-	IF DQBkey(&H4D) THEN
-		IF player.vx < prefs.walkVxMax THEN
-			player.facing = 0
-			player.vx = player.vx + prefs.walkAx
-		END IF
-	END IF
-
-	player.x = player.x + player.vx
-	IF player.x < 0 THEN player.x = 0: player.attempt = DLEFT
-	IF player.x > 19456 THEN player.x = 19456: player.attempt = DRIGHT
-
-	' Collision? undo to tile boundary
-
-	y% = DQBshiftRight(player.y, 6)
-	yy% = DQBshiftRight(y%, 4)
-	x% = DQBshiftRight(player.x, 6)
-	xx% = DQBshiftRight(x%, 4)
-
-	IF player.vx < 0 THEN
-		IF curScreenBuff(cToIdx%(xx%, yy%)).behaviour > 7 OR ((y% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx%, yy% + 1)).behaviour > 7) THEN
-			player.vx = 0
-			player.x = DQBshiftLeft(xx% + 1, 10)
-		END IF
-	ELSEIF player.vx > 0 THEN
-		IF curScreenBuff(cToIdx%(xx% + 1, yy%)).behaviour > 7 OR ((y% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx% + 1, yy% + 1)).behaviour > 7) THEN
-			player.vx = 0
-			player.x = DQBshiftLeft(xx%, 10)
-		END IF
-	ELSE
-		player.x = DQBshiftLeft(x%, 6)
-	END IF
-
-	x% = DQBshiftRight(player.x, 6)
-	xx% = DQBshiftRight(x%, 4)
-
-	' Open keyhole
-
-	IF (y% AND 15) = 0 AND (x% AND 15) = 0 AND player.keys > 0 THEN
-		res% = 0
-		IF DQBkey(&H4B) THEN res% = engineDetectKeyHole(curScreenBuff(), map%(), xx% - 1, yy%)
-		IF DQBkey(&H4D) THEN res% = engineDetectKeyHole(curScreenBuff(), map%(), xx% + 1, yy%)
-		IF res% THEN player.keys = player.keys - 1: DQBplaySound 1, 2, 11025, ONCE
-	END IF
-   
-	' Evil tile
-
-	IF (curScreenBuff(cToIdx%(xx%, yy%)).behaviour = 1 OR ((x% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx% + 1, yy%)).behaviour = 1) OR ((y% AND 15) <> 0 AND curScreenBuff(cToIdx%(xx%, yy% + 1)).behaviour = 1) OR ((x% AND 15) <> 0 AND (y% AND 15) <>  _
-0 AND curScreenBuff(cToIdx%(xx% + 1, yy% + 1)).behaviour = 1)) THEN
-		DQBplaySound 7, 4, 11025, ONCE
-		IF player.state = STATENORMAL THEN
-			DQBplaySound 8, 3, 11025 + INT(RND * 1024), ONCE
-			player.lives = player.lives - 1
-			player.state = STATEFLICKER
-			player.ctState = 128
-		END IF
-		IF player.vy < 0 THEN
-			player.vy = prefs.gMaxVy
-			player.y = DQBshiftLeft(yy% + 1, 10)
-		ELSE
-			player.vy = -prefs.gMaxVy
-			player.y = DQBshiftLeft(yy%, 10)
-		END IF
-	END IF
-
-END SUB
-
-REM $DYNAMIC
-DEFINT A-Z
-SUB enginePrintStats (player AS TypePlayer, prefs AS TypePrefs, tileset%(), spriteset%())
-	' You'll probably have to modify this by hand for each game.
-	'DQBfilterBox 1, 0, 4, 48, 52, 255, 1
-	DQBput 1, 4, 4, VARSEG(tileset%(0, prefs.objectTile)), VARPTR(tileset%(0, prefs.objectTile))
-	DQBput 1, 4, 20, VARSEG(tileset%(0, prefs.keyTile)), VARPTR(tileset%(0, prefs.keyTile))
-	DQBput 1, 4, 36, VARSEG(tileset%(0, prefs.lifeTile)), VARPTR(tileset%(0, prefs.lifeTile))
-	engineRprint 1, "x" + engineMakeNumber$(2, player.objects), 20, 4, 254
-	engineRprint 1, "x" + engineMakeNumber$(2, player.keys), 20, 20, 254
-	IF player.lives >= 0 THEN l% = player.lives ELSE l% = 0
-	engineRprint 1, "x" + engineMakeNumber$(2, l%), 20, 36, 254
-END SUB
-
-SUB engineRprint (Layer%, Text$, x%, y%, c%)
-	DQBprint Layer%, Text$, x% + 1, y% + 1, 255
-	DQBprint Layer%, Text$, x%, y%, 254
-END SUB
-
-SUB engineScreenDrawLayer1 (tileset%(), prefs AS TypePrefs, curScreenBuff() AS TypeTileLayers)
-	x% = 0: y% = 0
-	screenPixelW% = 16 * prefs.screenW
-	DQBsetTransPut
-	idx% = 23 'skip letterbox
-	FOR i% = 1 TO 12
-		FOR j% = 1 TO 20
-			id% = curScreenBuff(idx%).layer1
-			IF id% THEN DQBput 2, prefs.screenPos.x + x%, prefs.screenPos.y + y%, VARSEG(tileset%(0, id%)), VARPTR(tileset%(0, id%))
-			x% = x% + 16
-			IF x% = screenPixelW% THEN
-				x% = 0
-				y% = y% + 16
-			END IF
-			idx% = idx% + 1
-		NEXT j%
-		idx% = idx% + 2 'skip border
-	NEXT i%
-END SUB
-
-SUB engineScreenDrawLayer2 (frame%, tileset%(), prefs AS TypePrefs, curScreenBuff() AS TypeTileLayers)
-	x% = 0: y% = 0
-	screenPixelW% = 16 * prefs.screenW
-	DQBsetTransPut
-	idx% = 23 'skip letterbox
-	FOR i% = 1 TO 12
-		FOR j% = 1 TO 20
-			id% = curScreenBuff(idx%).layer2
-			IF curScreenBuff(idx%).anim THEN id% = id% + frame%
-			IF id% THEN DQBput 1, prefs.screenPos.x + x%, prefs.screenPos.y + y%, VARSEG(tileset%(0, id%)), VARPTR(tileset%(0, id%))
-			x% = x% + 16
-			IF x% = screenPixelW% THEN
-				x% = 0
-				y% = y% + 16
-			END IF
-			idx% = idx% + 1
-		NEXT j%
-		idx% = idx% + 2 'skip border
-	NEXT i%
-END SUB
-
-SUB engineScreenPrepare (nPant%, tileProperties() AS TypeTileProperties, map%(), curScreenBuff() AS TypeTileLayers, prefs AS TypePrefs, hotSpots() AS TypeHotSpots)
-	ERASE curScreenBuff
-	REDIM curScreenBuff(308) AS TypeTileLayers
-	xPant% = nPant% MOD prefs.mapW
-	yPant% = nPant% \ prefs.mapW
-	mapTileWidth% = prefs.mapW * prefs.screenW
-	' Calculate offset in map file
-
-	FOR y% = 0 TO prefs.screenH - 1
-		index% = (yPant% * prefs.screenH + y%) * mapTileWidth% + xPant% * prefs.screenW
-		FOR x% = 0 TO prefs.screenW - 1
-			' We offset +1,+1 our coordinates to make room for a
-			' blank letterbox.
-			'iindex% = (y% + 1) * 22 + (x% + 1)
-			yy% = y% + 1
-			iindex% = (x% + 1) + DQBshiftLeft(yy%, 4) + DQBshiftLeft(yy%, 2) + DQBshiftLeft(yy%, 1)
-			Value% = map%(index% + x%)
-			IF tileProperties(Value%).location = BACK THEN
-				curScreenBuff(iindex%).layer1 = Value%
-			ELSE
-				curScreenBuff(iindex%).layer2 = Value%
-			END IF
-			IF tileProperties(Value%).location = ANIMATED THEN
-				curScreenBuff(iindex%).anim = -1
-			ELSE
-				curScreenBuff(iindex%).anim = 0
-			END IF
-			curScreenBuff(iindex%).behaviour = tileProperties(Value%).flags
-			curScreenBuff(iindex%).realMapIndex = index% + x%
-		NEXT x%
-	NEXT y%
-	IF hotSpots(nPant%).s THEN
-		prefs.hotSpotX = DQBshiftLeft(hotSpots(nPant%).x, 4)
-		prefs.hotSpotY = DQBshiftLeft(hotSpots(nPant%).y, 4)
-	ELSE
-		prefs.hotSpotX = 999
-		prefs.hotSpotY = 999
-	END IF
-END SUB
-
-*/
+

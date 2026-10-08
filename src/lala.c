@@ -1,54 +1,62 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "directqb.h"
 #include "engine.h"
 #include "fmengine.h"
 
-/*
-DECLARE SUB showEnding ()
-DECLARE FUNCTION showTitle% (prefs AS ANY, tileProperties() AS ANY, spriteProperties() AS ANY, tileset%(), spriteset%(), spriteMapping%(), flag%)
-*/
+/* Staging buffers: DQB string params must be DGROUP (literals/globals),
+ * never stack. Title/ending art + palettes are used synchronously. */
+static char pal[768];
+static char prCh[2];
 
-#undef main
-int main(void)
+static const char *endingText[8] = {
+	"YOU DID IT!", "GOT ALL THE", "POTIONS...", "WELL DONE!",
+	"BUT THERE'S", "STILL MUCH", "TO DO!", "SEE YOU SOON!"
+};
+
+static void showEnding(void);
+static int showTitle(void);
+
+int main(int argc, char *argv[])
 {
 	int i;
 
-	printf("INITALIZING OPL3 LIBRARY\n");
-	//i = FMinit();
+	if (argc > 1 && strcmp(argv[1], "test") == 0)
+		return engtest_run();
 
-	// Init DirectQB for 4 layers
+	printf("INITALIZING OPL3 LIBRARY\n");
+	/* FMinit (Phase 3) */
+
+	/* Init DirectQB for 4 layers */
 	printf("INITIALIZING DIRECTQB\n");
 	i = DQBinit(5, 11, 0);
 	if (i) {
 		printf("DIRECTQB FATAL ERROR!\n");
-		//PRINT DQBerror$
+		/* PRINT DQBerror$ (skipped: BC-compiled, see PORTING.md) */
 		exit(1);
 	}
 
-	// Load font
+	/* Load font */
 	printf("LOADING FONT\n");
 	i = DQBloadFont("GFX\\LALA.FNT");
 	if (i)	{
 		printf("ERROR LOADING FONT!\n");
-		//PRINT DQBerror$
 		DQBclose();
 		exit(1);
 	}
 
-	// Install Soundblaster
+	/* Install Soundblaster */
 	printf("INSTALLING SOUNDBLASTER DRIVER\n");
 	i = DQBinstallSB(0, 6, 11025, AUTO, AUTO, AUTO);
 	if (i) {
 		printf("ERROR SETTING UP SOUNDBLASTER!\n");
-		//PRINT DQBerror$
 		DQBclose();
 		exit(1);
 	}
 
-
-	// Load sounds
+	/* Load sounds */
 	printf("LOADING SOUNDS\n");
 	i = DQBloadSound(8, "SFX\\AH.WAV");
 	i |= DQBloadSound(1, "SFX\\BOLT.WAV");
@@ -63,150 +71,145 @@ int main(void)
 
 	if (i) {
 		printf("ERROR LOADING SOUNDS!\n");
-		//PRINT DQBerror$
 		DQBclose();
 		exit(1);
 	}
 
-	// Install keyboard
+	/* Install keyboard */
 	printf("INSTALLING KEYBOARD HANDLER\n");
 	DQBinstallKeyboard();
 
-	// Init game
+	/* Init game */
 	printf("INITIALIZING GAME\n");
 
 	engineInitVals();
+	/* engineLoadPrefs(0): QB copies prefsStore(0) into prefs; our
+	 * engineInitVals writes prefs directly, nothing to copy. */
 	engineLoadTileProperties();
-
 	engineLoadTileset();
 	engineLoadSpriteProperties();
 	engineLoadSpriteset();
 	engineLoadSpriteMapping();
 
-	//DQBfadeTo 0, 0, 0
-	//DQBinitVGA
+	DQBfadeTo(0, 0, 0);
+	DQBinitVGA();
 
-	// Load blender map
-	// This blender map has been created for colours 254 (white) and 255 (black).
-	// This way you can easily create nifty "darken"/"brighten" effects easily.
+	/* Load blender map.
+	 * This blender map has been created for colours 254 (white) and
+	 * 255 (black). This way you can easily create nifty
+	 * "darken"/"brighten" effects easily. */
+	/* dummy& = SETMEM(-513) (Phase 2/3: wlink stack directives) */
 	i = DQBcreateBMap(1, 254, 255);
 
 	if (i) {
-		//DQBinitText();
-		printf("ERROR creating blender map\n" /*DQBerror$*/);
+		DQBinitText();
+		printf("ERROR creating blender map\n");
 		DQBclose();
 		exit(1);
 	}
 
 	i = DQBloadBMap(1, "GFX\\LALA.BMA");
 	if (i) {
-		//DQBinitText();
-		printf("ERROR loading blender map\n" /*DQBerror$*/);
+		DQBinitText();
+		printf("ERROR loading blender map\n");
 		DQBclose();
 		exit(0);
 	}
 
-/*
-' Loop
-DO
-    engineInitGame prefs
-    i% = showTitle(prefs, tileProperties(), spriteProperties(), tileset%(), spriteset%(), spriteMapping%(), -1)
-    IF i% THEN
-        DQBsetPal prefs.pal
-        r% = engineDoGame(prefs, tileProperties(), spriteProperties(), tileset%(), spriteset%(), spriteMapping%(), -1)
-        IF r% = -1 THEN
-            showEnding
-        END IF
-    END IF
-LOOP WHILE i%
-*/
-	//DQBinitText();
-	DQBremoveKeyboard();
+	/* Loop */
+	do {
+		int r;
+		engineInitGame();
+		i = showTitle();
+		if (i) {
+			DQBsetPal(prefs.pal);
+			r = engineDoGame(-1);
+			if (r == -1)
+				showEnding();
+		}
+	} while (i);
 
+	DQBinitText();
+	DQBremoveKeyboard();
 	DQBclose();
 
-	//FMend();
+	/* FMend (Phase 3) */
+	BeSilent();
 
 	return 0;
 }
 
-/*
-endingText:
-DATA "YOU DID IT!", "GOT ALL THE", "POTIONS...", "WELL DONE!"
-DATA "BUT THERE'S", "STILL MUCH", "TO DO!", "SEE YOU SOON!"
+static void showEnding(void)
+{
+	int w, h, d, k, i, x, y, j, ti = 0;
+	DQBloadImage(3, 0, 0, "GFX\\ENDING.PCX", pal, &w, &h);
+	DQBclearLayer(VIDEO);
+	DQBpalOff();
+	DQBcopyLayer(3, 1);
+	FMload("MUSIC\\MC12.S3M");
+	DQBsetPal(pal);
 
-REM $STATIC
-SUB showEnding
-    pal$ = SPACE$(768)
-    i% = DQBloadImage(3, 0, 0, "GFX\\ENDING.PCX", pal$, w%, x%)
-    DQBclearLayer VIDEO
-    DQBpalOff
-    DQBcopyLayer 3, 1
-    FMload "MUSIC\MC12.S3M"
-    DQBsetPal pal$
+	DQBcopyLayer(1, VIDEO);
+	for (d = 1; d <= 32; d++)
+		DQBwait(1);
 
-    DQBcopyLayer 1, VIDEO
-    FOR d% = 1 TO 32
-        DQBwait 1
-    NEXT d%
+	/* Here */
+	for (k = 1; k <= 2; k++) {
+		DQBcopyLayer(3, 1);
+		DQBfilterBox(1, 16, 16, 135, 95, 255, 1);
+		DQBbox(1, 16, 16, 135, 95, 254);
+		y = 24;
+		for (i = 1; i <= 4; i++) {
+			const char *text = endingText[ti++];
+			x = 24;
+			for (j = 0; text[j]; j++) {
+				prCh[0] = text[j];
+				prCh[1] = 0;
+				DQBprint(1, prCh, x - 1, y - 1, 255);
+				DQBprint(1, prCh, x, y, 254);
+				for (d = 1; d <= 8; d++)
+					DQBwait(1);
+				DQBcopyLayer(1, VIDEO);
+				x += 8;
+			}
+			y += 16;
+			if (i == 3)
+				y += 8;
+		}
+		for (d = 1; d <= 120; d++)
+			DQBwait(1);
+	}
 
-    ' Here
-    RESTORE endingText
-    FOR k% = 1 TO 2
-        DQBcopyLayer 3, 1
-        DQBfilterBox 1, 16, 16, 135, 95, 255, 1
-        DQBbox 1, 16, 16, 135, 95, 254
-        y% = 24
-        FOR i% = 1 TO 4
-            x% = 24
-            READ text$
-            FOR j% = 1 TO LEN(text$)
-                DQBprint 1, MID$(text$, j%, 1), x% - 1, y% - 1, 255
-                DQBprint 1, MID$(text$, j%, 1), x%, y%, 254
-                FOR d% = 1 TO 8
-                    DQBwait 1
-                NEXT d%
-                DQBcopyLayer 1, VIDEO
-                x% = x% + 8
-            NEXT j%
-            y% = y% + 16
-            IF i% = 3 THEN y% = y% + 8
-        NEXT i%
-        FOR d% = 1 TO 120
-            DQBwait 1
-        NEXT d%
-    NEXT k%
-   
-    WHILE DQBinkey$ <> "": WEND
-    WHILE DQBinkey$ = "": WEND
+	while (DQBinkey())
+		;
+	while (!DQBinkey())
+		;
 
-    PLAY STOP
-    BeSilent
-    DQBclearLayer VIDEO
-END SUB
+	/* PLAY STOP (Phase 3) */
+	BeSilent();
+	DQBclearLayer(VIDEO);
+}
 
-FUNCTION showTitle% (prefs AS TypePrefs, tileProperties() AS TypeTileProperties, spriteProperties() AS TypeSpriteProperties, tileset%(), spriteset%(), spriteMapping%(), flag%)
-    DQBclearLayer VIDEO
-    DQBpalOff
-   
-    pal$ = SPACE$(768)
-    i% = DQBloadImage(3, 0, 0, "GFX\\TITLE.PCX", pal$, w%, x%)
-   
-    IF i% THEN
-        DQBinitText
-        DQBclose
-        PRINT "ERROR!"
-    END IF
+static int showTitle(void)
+{
+	/* QB's flag% param is unused (always runs the demo game); dropped. */
+	int w, h, r;
+	DQBclearLayer(VIDEO);
+	DQBpalOff();
 
-    FMload "MUSIC\G66A.S3M"
-    DQBsetPal pal$
-    r% = engineDoGame(prefs, tileProperties(), spriteProperties(), tileset%(), spriteset%(), spriteMapping%(), 0)
-    PLAY STOP
-    BeSilent
+	if (DQBloadImage(3, 0, 0, "GFX\\TITLE.PCX", pal, &w, &h)) {
+		DQBinitText();
+		DQBclose();
+		printf("ERROR!");
+	}
 
-    DQBclearLayer VIDEO
+	FMload("MUSIC\\G66A.S3M");
+	DQBsetPal(pal);
+	r = engineDoGame(0);
+	/* PLAY STOP (Phase 3) */
+	BeSilent();
 
-    showTitle% = r%
-END FUNCTION
+	DQBclearLayer(VIDEO);
 
-*/
+	return r;
+}

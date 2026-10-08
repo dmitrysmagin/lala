@@ -15,17 +15,22 @@
 #
 # Output goes to bin\ folder (mounted as C: in DOSBox, see run.bat/lala.conf).
 
-# Compiler flags: 8086 (-0), large model (-ml), no stack check (-s)
+# Compiler: 8086 (-0), MEDIUM model (-mm, like QB 4.5 and DQB's own
+# .MODEL medium: far code, single near DGROUP, SS == DS), no stack check
 WCL     = wcl
 WASM    = wasm
+# -fpi87: real 8087 opcodes, no FP-emulation helper (WASM default
+# injects an FIDRQQ external that drags in 12KB of emu87; the game
+# runs on a real or emulated FPU and never calls DQBangle anyway)
+WASMFLAGS = -fpi87
 WLIB    = wlib
-CFLAGS  = -0 -ml -s -zq -w4
+CFLAGS  = -0 -mm -s -zq -w4
 
 # Output — 8.3 filename required for DOSBox mount
 TARGET  = bin\lala.exe
 
 # Source files (order matters for wcl — first .c becomes the target name)
-SRCS    = src\lala.c src\engine.c src\fmengine.c src\directqb.c
+SRCS    = src\lala.c src\engine.c src\engtest.c src\fmengine.c src\directqb.c
 
 # DirectQB library, recompiled from dqb\*.ASM with WASM (see PORTING.md).
 # Excluded: dqb\CALLS.OBJ (BC-compiled BASIC, no ASM source) and the
@@ -43,21 +48,21 @@ $(TARGET): $(SRCS) $(DQBLIB)
 dqblib: $(DQBLIB)
 
 $(DQBLIB): $(DQBASM)
-	$(WASM) -fo=dqb\obj\MAIN.obj dqb\MAIN.ASM
-	$(WASM) -fo=dqb\obj\DRAW.obj dqb\DRAW.ASM
-	$(WASM) -fo=dqb\obj\SPRITE.obj dqb\SPRITE.ASM
-	$(WASM) -fo=dqb\obj\IMAGE.obj dqb\IMAGE.ASM
-	$(WASM) -fo=dqb\obj\FONT.obj dqb\FONT.ASM
-	$(WASM) -fo=dqb\obj\BLENDING.obj dqb\BLENDING.ASM
-	$(WASM) -fo=dqb\obj\PALETTE.obj dqb\PALETTE.ASM
-	$(WASM) -fo=dqb\obj\BIT.obj dqb\BIT.ASM
-	$(WASM) -fo=dqb\obj\DISK.obj dqb\DISK.ASM
-	$(WASM) -fo=dqb\obj\DATAFILE.obj dqb\DATAFILE.ASM
-	$(WASM) -fo=dqb\obj\SOUND.obj dqb\SOUND.ASM
-	$(WASM) -fo=dqb\obj\KEYBOARD.obj dqb\KEYBOARD.ASM
-	$(WASM) -fo=dqb\obj\MOUSE.obj dqb\MOUSE.ASM
-	$(WASM) -fo=dqb\obj\JOYSTICK.obj dqb\JOYSTICK.ASM
-	$(WASM) -fo=dqb\obj\THREED.obj dqb\THREED.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\MAIN.obj dqb\MAIN.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\DRAW.obj dqb\DRAW.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\SPRITE.obj dqb\SPRITE.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\IMAGE.obj dqb\IMAGE.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\FONT.obj dqb\FONT.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\BLENDING.obj dqb\BLENDING.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\PALETTE.obj dqb\PALETTE.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\BIT.obj dqb\BIT.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\DISK.obj dqb\DISK.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\DATAFILE.obj dqb\DATAFILE.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\SOUND.obj dqb\SOUND.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\KEYBOARD.obj dqb\KEYBOARD.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\MOUSE.obj dqb\MOUSE.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\JOYSTICK.obj dqb\JOYSTICK.ASM
+	$(WASM) $(WASMFLAGS) -fo=dqb\obj\THREED.obj dqb\THREED.ASM
 	$(WLIB) -n -q $(DQBLIB) +dqb\obj\MAIN.obj +dqb\obj\DRAW.obj +dqb\obj\SPRITE.obj +dqb\obj\IMAGE.obj +dqb\obj\FONT.obj +dqb\obj\BLENDING.obj +dqb\obj\PALETTE.obj +dqb\obj\BIT.obj +dqb\obj\DISK.obj +dqb\obj\DATAFILE.obj +dqb\obj\SOUND.obj +dqb\obj\KEYBOARD.obj +dqb\obj\MOUSE.obj +dqb\obj\JOYSTICK.obj +dqb\obj\THREED.obj
 
 # --- Clean ---

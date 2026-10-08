@@ -17,3 +17,7 @@ DECLARE FUNCTION note2period% (note%, Oct%, ins%)
 DECLARE FUNCTION VibVal% (ind%, mode%)
 
 */
+
+/* Phase 2 stubs; the FMENGINE.BAS port is Phase 3 (see PORTING.md). */
+void FMload(const char *file);
+void BeSilent(void);

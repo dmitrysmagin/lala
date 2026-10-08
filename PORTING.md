@@ -49,16 +49,21 @@
 
 ## 2. Build system
 
-- Root `makefile`: `wmake` builds `bin\lala.exe` (`-0 -ml`,
-  now linked against `dqb/dqb.lib`); `wmake dqblib` rebuilds the lib
-  from `dqb/*.ASM`. Keep `-ml`; revisit `-0`→`-3` only if needed
-  (DQB itself is `.386`; DOSBox is 386+).
+- Root `makefile`: `wmake` builds `bin\lala.exe` (**`-0 -mm`**);
+  `wmake dqblib` rebuilds `dqb/dqb.lib` from `dqb/*.ASM`
+  (`wasm -fpi87`: real 8087 opcodes, no FP-emulation helper).
+- **Memory model is `-mm` (medium), like QB 4.5 itself and DQB's
+  `.MODEL medium`.** `-ml` was tried and abandoned: near/far scatter
+  across SS≠DS breaks wlink fixups (see quirks).
 - DOSBox conf needs `ems=true` (`DQBinit(5,11,0)` allocates 64 EMS
   pages; with `ems=false` init fails). Fixed in `lala.conf`.
 - `SETMEM(-513)` in `LALA.BAS` → `wlink` stack/heap directives instead
   (still open, needed before the full game with big maps).
 - Keep `build.sh`/SDL files untouched; the Watcom path is
   `makefile` → `bin\`.
+- Ongoing constraint: single 64K code group + absolute-addressed DQB
+  data fixups ⇒ keep (CODE + early DGROUP) under ~64K (currently
+  ~57K with engtest; the shipped game without engtest is smaller).
 
 ## 3. `directqb.h/.c` binding layer — DONE
 
@@ -81,22 +86,27 @@
   DQBinit, font, SB16, 10 WAVs, keyboard, tileset+spriteset,
   blender map, clean close; full log + stdio flush prove clean exit.
 
-## 4. Port `LALA.BAS` + `ENGINE.BAS` (mechanical, biggest chunk)
+## 4. Port `LALA.BAS` + `ENGINE.BAS` — DONE
 
-- Order: `engineInitVals → LoadTileProperties/Tileset/
-  SpriteProperties/Spriteset/SpriteMapping → showTitle →
-  engineDoGame → showEnding`.
-- Type mapping 1:1 from `lala-qb/ENGINE.BI`
-  (`TypePrefs/TypePlayer/TypeTileLayers/TypeEnems/TypeHotSpots` →
-  same-layout structs; `STRING*12` → `char[12]`;
-  `INTEGER` → `int16_t`).
-- QB-isms: `REDIM/ERASE` → `farmalloc/ffree`; `RND` → `rand()`
-  seeded from the BIOS tick; `DQBkey(&H4B)` scancodes pass through
-  unchanged; `DATA/READ/RESTORE` (ending text) → static arrays;
-  file `OPEN…GET` (`engineMapLoad`, `ENEMS.TXT`/`HOTSPOTS.TXT`) →
-  `fopen/fread/fscanf`.
-- Verify per-subroutine against the original `lala-qb/LALA.EXE` in
-  DOSBox (title → gameplay → ending), same inputs.
+- `src/engine.c`: all of ENGINE.BAS translated 1:1 (init/loader/calc/
+  detect/move/draw/DoGame loop); `src/lala.c`: main loop, showTitle,
+  showEnding (DATA → static array). Globals replace QB SHARED/params.
+- File loaders replace hardcoded tables (`qbReadInt` mirrors INPUT#).
+  This fixed two latent bugs: `numSprites` is 21, not 20 (SPRPROP has
+  21 lines; sprite 20 would have read NULL), and spriteset needs a real
+  768B dummy pal (NULL would scribble the IVT).
+- QB→C rules: `REDIM/ERASE` → `_fcalloc/_ffree` (note: `_fmemset`, not
+  `memset`, for far buffers — `W112` caught one truncation crash);
+  `AND/OR/NOT` → bitwise on -1/0 truth; `RND` → `rand() >> 5`;
+  `LTRIM$(STR$)` → `sprintf %0*d`; `DQBkey(&H..)` scancodes unchanged.
+- DQB-string params must be DGROUP: asset paths via a static staging
+  buffer, `prCh`/`statBuf`/title `pal` statics (documented in headers).
+- Verified: `lala.exe test` runs 121-check `src/engtest.c` headless in
+  DOSBox — loaders (hand-verified values), collision/keyhole/frames,
+  8-frame physics smoke (matches hand computation), full render path
+  (init/font/PCX/puts/print/layers/palette/VGA calls) — **ENGTEST:
+  PASS**. Normal binary reaches the title demo loop (timeout-kill =
+  still running).
 
 ## 5. Port `FMENGINE.BAS` (only genuinely hard part)
 
@@ -121,7 +131,20 @@
 - Deliberate non-goals: `DQBerror$` text fidelity, mouse/joystick/3D
   modules, SDL path changes.
 
-**Suggested execution order:** Phase 1 spike → Phase 2 makefile →
-`BIT`+`KEYBOARD`+`MAIN` bindings → `LALA.BAS` main flow →
-`ENGINE.BAS` (~802 ln, subroutine by subroutine) → `FMENGINE.BAS` →
-playtest pass.
+**Suggested execution order:** Phase 0 lib → Phase 1 bindings →
+Phase 2 engine (this doc) → Phase 3 FMENGINE → playtest pass.
+
+## Appendix: WASM/wlink quirks found (do not regress)
+
+- WASM defaults to FP-emulation codegen: FPU ops get `FWAIT` prefixes
+  plus an `FIDRQQ` external that drags in 12KB of `emu87`. Only
+  `MAIN.ASM` uses the FPU (DQBangle, unused by the game). Fix:
+  `wasm -fpi87` (in makefile `WASMFLAGS`) — bare opcodes, no helper.
+- The game image must keep (CODE + early DGROUP) under ~64K: some DQB
+  data fixups resolve to absolute image offsets (E2083 beyond that).
+  The emu87 bloat was enough to overflow it; `wmake` output size is
+  worth a glance after big additions.
+- `wmake`/`wcl` need DOS-style `\` paths (run via `cmd //c` from
+  MSYS bash); check real exit codes, not pipe-masked ones.
+- OpenWatcom 16-bit `int` is 16-bit (QB INTEGER semantics hold,
+  including `-1` = true); `rand()` spans 0..32767 like QB's RND range.
