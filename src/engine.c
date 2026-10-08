@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
 
 #include "directqb.h"
 #include "engine.h"
@@ -431,16 +432,21 @@ void engineLoadSpriteProperties()
 void engineLoadSpriteset()
 {
 	int i, w, h, x, y;
+	/* Palette of SPRSET.PCX is discarded, like the QB original's
+	 * `DIM dummy AS STRING * 768` (a real buffer, never NULL). */
+	static char dummyPal[768];
 
 	// sprites are in a 192x192 file (max 64 sprites)
 	// In this game we use 6 for main sprite, 12 for enemies,
 	// 2 for platforms.
 
-	i = DQBloadImage(3, 0, 0, "GFX//SPRSET.PCX", 0, &w, &h);
+	i = DQBloadImage(3, 0, 0, "GFX\\SPRSET.PCX", dummyPal, &w, &h);
 
 	x = 0; y = 0;
 	for (i = 0; i < prefs.numSprites; i++) {
-		DQBget(3, x, y, 23 + x, 23 + y, &spriteset[i]);
+		/* 24x24 sprite: 4-byte header + 576 pixels (see DQBget). */
+		spriteset[i] = _fmalloc(580);
+		DQBget(3, x, y, 23 + x, 23 + y, spriteset[i]);
 		x += 24;
 		if (x == 192) {
 			x = 0;
@@ -464,12 +470,14 @@ void engineLoadTileset()
 {
 	int i, w, h, x, y;
 
-	i = DQBloadImage(3, 0, 0, "GFX//TILESET.PCX", prefs.pal, &w, &h);
+	i = DQBloadImage(3, 0, 0, "GFX\\TILESET.PCX", prefs.pal, &w, &h);
 
 	x = 0; y = 0;
 	
 	for (i = 0; i < prefs.numTiles; i++) {
-		DQBget(3, x, y, 15 + x, 15 + y, &tileset[i]);
+		/* 16x16 tile: 4-byte header + 256 pixels (see DQBget). */
+		tileset[i] = _fmalloc(260);
+		DQBget(3, x, y, 15 + x, 15 + y, tileset[i]);
 		x += 16;
 		if (x == 320) {
 			x = 0;

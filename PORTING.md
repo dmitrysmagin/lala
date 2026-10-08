@@ -49,33 +49,37 @@
 
 ## 2. Build system
 
-- Root `makefile`: `wmake` builds `bin\lala.exe` (`-0 -ml`);
-  `wmake dqblib` rebuilds `dqb/dqb.lib` from `dqb/*.ASM`.
-  Next step (Phase 2/3): link `bin\lala.exe` against `dqb/dqb.lib`
-  once `src/directqb.c` becomes a real binding layer (currently stubs
-  — linking now would cause duplicate symbols).
-  Keep `-ml`; revisit `-0`→`-3` only if needed (DQB itself is `.386`;
-  DOSBox is 386+).
-- `SETMEM(-513)` in `LALA.BAS` → `wlink` stack/heap directives instead.
+- Root `makefile`: `wmake` builds `bin\lala.exe` (`-0 -ml`,
+  now linked against `dqb/dqb.lib`); `wmake dqblib` rebuilds the lib
+  from `dqb/*.ASM`. Keep `-ml`; revisit `-0`→`-3` only if needed
+  (DQB itself is `.386`; DOSBox is 386+).
+- DOSBox conf needs `ems=true` (`DQBinit(5,11,0)` allocates 64 EMS
+  pages; with `ems=false` init fails). Fixed in `lala.conf`.
+- `SETMEM(-513)` in `LALA.BAS` → `wlink` stack/heap directives instead
+  (still open, needed before the full game with big maps).
 - Keep `build.sh`/SDL files untouched; the Watcom path is
   `makefile` → `bin\`.
 
-## 3. `directqb.h/.c` becomes a binding layer, not a reimplementation
+## 3. `directqb.h/.c` binding layer — DONE
 
-- One `extern` + `#pragma aux` per used entry point (list from
-  `lala-qb/DIRECTQB.BI`, minus unused modules).
-- Two helpers, derived by reading the ASM, not guessing:
-  - **QB string descriptor**: `DQBloadImage/FileName$`, `Pal$`,
-    `DQBloadFont/Sound/BMap`, `DQBsetPal` take string descriptors.
-    Read the `IMAGE.ASM`/`FONT.ASM` prologues to get the exact layout,
-    then build a `qb_str()` helper in C (length + far pointer).
-    `DQBerror$` (a string *function*) — skip it; log generic errors
-    instead.
-  - **Buffers**: `DQBget/put` take `BYVAL BufSeg%/BufOff%` =
-    `FP_SEG/FP_OFF` of our `__far` buffers. The DQB sprite format
-    stays opaque — just hold bytes.
-- `BIT.OBJ` shifts could be C one-liners, but link the real thing
-  anyway (faithfulness + the spike already proves it).
+- `src/directqb.h`: raw `extern __far __pascal` declarations
+  (UPPERCASE, exact word layouts from the "; Stack layout:" comments)
+  + mixed-case C wrappers. `__pascal` needs no `#pragma aux`.
+- X-procs take raw seg:off words (ASCIZ), NOT QB descriptors —
+  wrappers build them from near literals/globals via `segread()`.
+  `void __far *` buffers may point anywhere; `int *w/h` OUT params are
+  DGROUP-staged in `directqb.c` (callers pass stack locals, but the
+  ASM stores through DS).
+- `DQBloadImage` pal param is never NULL in the original (`dummy$`);
+  `engineLoadSpriteset` got a static 768B dummy (NULL would scribble
+  the IVT). `DQBget` dests are `_fmalloc`'d (tiles 260B, sprites 580B;
+  old code passed `&ptr` into a no-op stub).
+- All asset paths normalized to DOS `\` (were `/`, `//`).
+- `DQBerror$` skipped (BC-compiled, in `CALLS.OBJ`); `DQBinkey$`
+  reimplemented over `XDQBINKEY`.
+- Verified: `bin\lala.exe` (55KB) runs the full init flow in DOSBox —
+  DQBinit, font, SB16, 10 WAVs, keyboard, tileset+spriteset,
+  blender map, clean close; full log + stdio flush prove clean exit.
 
 ## 4. Port `LALA.BAS` + `ENGINE.BAS` (mechanical, biggest chunk)
 

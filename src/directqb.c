@@ -1,100 +1,178 @@
-/*
-	Wrapper DirectQB => SDL :))
-*/
-
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+/* directqb.c — thin C wrappers over the raw DQB entry points.
+ *
+ * Only marshaling lives here: near ASCIZ filename -> far (seg, off),
+ * far buffer passthrough, DGROUP staging for near OUT-pointers.
+ * No behaviour, no reimplementation.
+ */
+#include <i86.h>
 
 #include "directqb.h"
 
-// DECLARE FUNCTION DQBinit% (BYVAL NumLayers%, BYVAL NumSounds%, BYVAL MemSize%)
-int DQBinit(int NumLayers, int NumSounds, int MemSize)
+/* Near ASCIZ (literal/global, i.e. DGROUP) -> far pointer for X-procs. */
+static char __far *near_to_far(const char *p)
 {
-	(void)NumLayers;
-	(void)NumSounds;
-	(void)MemSize;
-
-	return 0;
+    struct SREGS sr;
+    segread(&sr);
+    return (char __far *)MK_FP(sr.ds, FP_OFF(p));
 }
 
-// DECLARE SUB DQBclose ()
-void DQBclose()
+/* xDQBloadImage writes imgW/imgH through NEAR pointers using DS, so they
+ * must be DGROUP-resident; callers pass stack locals, hence staging. */
+static int stagedW, stagedH;
+
+int DQBinit(int numLayers, int numSounds, int memSize)
 {
+    return DQBINIT(numLayers, numSounds, memSize);
 }
 
-//DECLARE SUB DQBclearLayer (BYVAL Layer%)
-void DQBclearLayer(int Layer)
+void DQBclose(void)
 {
+    DQBCLOSE();
 }
 
-//DECLARE SUB DQBwait (BYVAL Times%)
-void DQBwait(int Times)
+void DQBcopyLayer(int srcLayer, int dstLayer)
 {
+    DQBCOPYLAYER(srcLayer, dstLayer);
 }
 
-// Procedures from DRAW.OBJ:
-
-//DECLARE SUB DQBget (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL BufSeg%, BYVAL BufOff%)
-void DQBget(int Layer, int x1, int y1, int x2, int y2, char **BufOff)
+void DQBclearLayer(int layer)
 {
+    DQBCLEARLAYER(layer);
 }
 
-//DECLARE SUB DQBput (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%)
-void DQBput (int Layer, int x, int y, char *BufOff)
+void DQBwait(int times)
 {
+    DQBWAIT(times);
 }
 
-// Procedures from IMAGE.OBJ:
-
-// DECLARE FUNCTION DQBloadImage% (Layer%, x%, y%, FileName$, Pal$, imgWidth%, imgHeight%)
-int DQBloadImage(int Layer, int x, int y, char *FileName, void *Pal, int *imgWidth, int *imgHeight)
+void DQBinitVGA(void)
 {
-	return 0;
+    DQBINITVGA();
 }
 
-// Procedures from FONT.OBJ:
-
-// DECLARE FUNCTION DQBloadFont% (FileName$)
-int DQBloadFont(char *FileName)
+void DQBinitText(void)
 {
-	return 0;
+    DQBINITTEXT();
 }
 
-// Procedures from KEYBOARD.OBJ:
-
-// DECLARE SUB DQBinstallKeyboard ()
-void DQBinstallKeyboard()
+void DQBfadeTo(int red, int green, int blue)
 {
+    DQBFADETO(red, green, blue);
 }
 
-void DQBremoveKeyboard()
+void DQBpalOff(void)
 {
+    DQBPALOFF();
 }
 
-// Procedures from BLENDING.OBJ:
-
-//DECLARE FUNCTION DQBcreateBMap% (BYVAL BMap%, BYVAL FirstCol%, BYVAL LastCol%)
-int DQBcreateBMap(int BMap, int FirstCol, int LastCol)
+void DQBsetPal(void __far *pal)
 {
-	return 0;
-}
-//DECLARE FUNCTION DQBloadBMap% (BMap%, FileName$)
-int DQBloadBMap(int BMap, char *FileName)
-{
-	return 0;
+    XDQBSETPAL((char __far *)pal);
 }
 
-// Procedures from SOUND.OBJ:
-
-// DECLARE FUNCTION DQBinstallSB% (BYVAL VolActive%, BYVAL Channels%, BYVAL Freq%, BYVAL BaseAddr%, BYVAL IRQ%, BYVAL DMA%)
-int DQBinstallSB(int VolActive, int Channels, int Freq, int BaseAddr, int IRQ, int DMA)
+void DQBbox(int layer, int x1, int y1, int x2, int y2, int col)
 {
-	return 0;
+    DQBBOX(layer, x1, y1, x2, y2, col);
 }
 
-// DECLARE FUNCTION DQBloadSound% (Slot%, FileName$)
-int DQBloadSound(int Slot, char *FileName)
+void DQBfilterBox(int layer, int x1, int y1, int x2, int y2, int col, int bmap)
 {
-	return 0;
+    DQBFILTERBOX(layer, x1, y1, x2, y2, col, bmap);
+}
+
+int DQBcreateBMap(int bmap, int firstCol, int lastCol)
+{
+    return DQBCREATEBMAP(bmap, firstCol, lastCol);
+}
+
+int DQBloadBMap(int bmap, const char *file)
+{
+    return XDQBLOADBMAP(bmap, near_to_far(file));
+}
+
+int DQBloadImage(int layer, int x, int y, const char *file, void __far *pal, int *imgW, int *imgH)
+{
+    int rc = XDQBLOADIMAGE(layer, x, y, near_to_far(file),
+                           (char __far *)pal, &stagedW, &stagedH);
+    if (imgW)
+        *imgW = stagedW;
+    if (imgH)
+        *imgH = stagedH;
+    return rc;
+}
+
+void DQBget(int layer, int x1, int y1, int x2, int y2, void __far *buf)
+{
+    DQBGET(layer, x1, y1, x2, y2, buf);
+}
+
+void DQBput(int layer, int x, int y, const void __far *buf)
+{
+    DQBPUT(layer, x, y, (void __far *)buf);
+}
+
+void DQBsetTransPut(void)
+{
+    DQBSETTRANSPUT();
+}
+
+int DQBloadFont(const char *file)
+{
+    return XDQBLOADFONT(near_to_far(file));
+}
+
+void DQBprint(int layer, const char *text, int x, int y, int col)
+{
+    /* DQBprints (with style) is unused by the game; style = 0. */
+    XDQBPRINT(layer, near_to_far(text), x, y, col, 0);
+}
+
+void DQBinstallKeyboard(void)
+{
+    DQBINSTALLKEYBOARD();
+}
+
+void DQBremoveKeyboard(void)
+{
+    DQBREMOVEKEYBOARD();
+}
+
+int DQBkey(int scanCode)
+{
+    return DQBKEY(scanCode);
+}
+
+char DQBinkey(void)
+{
+    return (char)XDQBINKEY();
+}
+
+int DQBinstallSB(int volActive, int channels, int freq, int baseAddr, int irq, int dma)
+{
+    return DQBINSTALLSB(volActive, channels, freq, baseAddr, irq, dma);
+}
+
+int DQBloadSound(int slot, const char *file)
+{
+    return XDQBLOADSOUND(slot, near_to_far(file));
+}
+
+void DQBplaySound(int soundNum, int voice, int freq, int loopFlag)
+{
+    DQBPLAYSOUND(soundNum, voice, freq, loopFlag);
+}
+
+void DQBstopVoice(int voice)
+{
+    DQBSTOPVOICE(voice);
+}
+
+int DQBshiftLeft(int value, int nBits)
+{
+    return DQBSHIFTLEFT(value, nBits);
+}
+
+int DQBshiftRight(int value, int nBits)
+{
+    return DQBSHIFTRIGHT(value, nBits);
 }

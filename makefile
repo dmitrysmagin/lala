@@ -36,8 +36,8 @@ DQBASM  = dqb\MAIN.ASM dqb\DRAW.ASM dqb\SPRITE.ASM dqb\IMAGE.ASM dqb\FONT.ASM dq
 # --- Targets ---
 all: $(TARGET)
 
-$(TARGET): $(SRCS)
-	$(WCL) $(CFLAGS) -fe=$(TARGET) $(SRCS)
+$(TARGET): $(SRCS) $(DQBLIB)
+	$(WCL) $(CFLAGS) -fe=$(TARGET) $(SRCS) $(DQBLIB)
 
 # Rebuild the DirectQB import library from sources.
 dqblib: $(DQBLIB)

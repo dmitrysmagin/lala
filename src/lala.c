@@ -29,7 +29,7 @@ int main(void)
 
 	// Load font
 	printf("LOADING FONT\n");
-	i = DQBloadFont("GFX/LALA.FNT");
+	i = DQBloadFont("GFX\\LALA.FNT");
 	if (i)	{
 		printf("ERROR LOADING FONT!\n");
 		//PRINT DQBerror$
@@ -50,16 +50,16 @@ int main(void)
 
 	// Load sounds
 	printf("LOADING SOUNDS\n");
-	i = DQBloadSound(8, "SFX/AH.WAV");
-	i |= DQBloadSound(1, "SFX/BOLT.WAV");
-	i |= DQBloadSound(2, "SFX/HIT.WAV");
-	i |= DQBloadSound(3, "SFX/JUMP.WAV");
-	i |= DQBloadSound(4, "SFX/KEY.WAV");
-	i |= DQBloadSound(5, "SFX/LIFE.WAV");
-	i |= DQBloadSound(6, "SFX/OBJECT.WAV");
-	i |= DQBloadSound(7, "SFX/PINCHE.WAV");
-	i |= DQBloadSound(9, "SFX/AMBIENT1.WAV");
-	i |= DQBloadSound(10, "SFX/AMBIENT2.WAV");
+	i = DQBloadSound(8, "SFX\\AH.WAV");
+	i |= DQBloadSound(1, "SFX\\BOLT.WAV");
+	i |= DQBloadSound(2, "SFX\\HIT.WAV");
+	i |= DQBloadSound(3, "SFX\\JUMP.WAV");
+	i |= DQBloadSound(4, "SFX\\KEY.WAV");
+	i |= DQBloadSound(5, "SFX\\LIFE.WAV");
+	i |= DQBloadSound(6, "SFX\\OBJECT.WAV");
+	i |= DQBloadSound(7, "SFX\\PINCHE.WAV");
+	i |= DQBloadSound(9, "SFX\\AMBIENT1.WAV");
+	i |= DQBloadSound(10, "SFX\\AMBIENT2.WAV");
 
 	if (i) {
 		printf("ERROR LOADING SOUNDS!\n");
@@ -98,7 +98,7 @@ int main(void)
 		exit(1);
 	}
 
-	i = DQBloadBMap(1, "GFX/LALA.BMA");
+	i = DQBloadBMap(1, "GFX\\LALA.BMA");
 	if (i) {
 		//DQBinitText();
 		printf("ERROR loading blender map\n" /*DQBerror$*/);
@@ -138,7 +138,7 @@ DATA "BUT THERE'S", "STILL MUCH", "TO DO!", "SEE YOU SOON!"
 REM $STATIC
 SUB showEnding
     pal$ = SPACE$(768)
-    i% = DQBloadImage(3, 0, 0, "GFX\ENDING.PCX", pal$, w%, x%)
+    i% = DQBloadImage(3, 0, 0, "GFX\\ENDING.PCX", pal$, w%, x%)
     DQBclearLayer VIDEO
     DQBpalOff
     DQBcopyLayer 3, 1
@@ -190,7 +190,7 @@ FUNCTION showTitle% (prefs AS TypePrefs, tileProperties() AS TypeTileProperties,
     DQBpalOff
    
     pal$ = SPACE$(768)
-    i% = DQBloadImage(3, 0, 0, "GFX\TITLE.PCX", pal$, w%, x%)
+    i% = DQBloadImage(3, 0, 0, "GFX\\TITLE.PCX", pal$, w%, x%)
    
     IF i% THEN
         DQBinitText

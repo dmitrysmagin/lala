@@ -1,200 +1,101 @@
-/*
-'----------------------------------------------------------------------------
-' DIRECTQB.BI
-'   Include file for the DirectQB library version 1.61
-'   by Angelo Mottola - Enhanced Creations 1998-99
-'
-' This file contains constants and function declarations used by the library
-' Always include this file into your own programs!
-'
-' Include file created on 10-12-2012 by the DirectQB Library Manager v1.2
-' Run DQBMAN again to modify your DirectQB module settings
-'
-' þ Read DIRECTQB.DOC for detailed informations on how to use the library
-'----------------------------------------------------------------------------
-*/
-
+/* directqb.h â€” C binding layer over dqb/dqb.lib (DirectQB 1.61, WASM build).
+ *
+ * Two levels:
+ *  1. Raw externs (UPPERCASE, __far __pascal) matching the ASM X-procs
+ *     1:1: FAR, params pushed left-to-right, callee cleans stack.
+ *     Far-pointer params are (seg, off) word pairs; Watcom __pascal
+ *     pushes far pointers seg-first, verified in spike/probe.c.
+ *  2. Mixed-case C wrappers with Sugar: ASCIZ filenames, far buffers.
+ *
+ * SEGMENT RULES (the ASM assumes them, verified against sources):
+ *  - `const char *file` params must be DGROUP-resident (string literals
+ *    and globals/static; NOT stack buffers). The wrapper derives DS
+ *    via segread() and builds the (seg, off) pair the X-proc wants.
+ *  - `void __far *` buffer params may point anywhere (layer/sprite/
+ *    palette data); the segment travels explicitly.
+ *  - `int *w/h` OUT params: same, must be DGROUP (directqb.c stages
+ *    through statics because callers pass stack locals).
+ */
 #ifndef _DIRECTQB_H_
 #define _DIRECTQB_H_
 
-// Library constants:
+/* Library constants (from DIRECTQB.BI): */
 #define AUTO	(-1)
 #define ONCE	 (0)
 #define LOOPED	 (1)
+#define VIDEO	 (0)
 
-// ' Procedures from MAIN.OBJ:
-// DECLARE FUNCTION DQBinit% (BYVAL NumLayers%, BYVAL NumSounds%, BYVAL MemSize%)
-int DQBinit(int NumLayers, int NumSounds, int MemSize);
-// DECLARE SUB DQBclose ()
-void DQBclose();
+/* ------------------------------------------------------------------ */
+/* Raw entry points in dqb.lib. Do not call directly; use the     */
+/* wrappers below. Signatures mirror the "; Stack layout:" comments   */
+/* in the dqb ASM sources.                                            */
+/* ------------------------------------------------------------------ */
+extern int __far __pascal DQBINIT(int numLayers, int numSounds, int memSize);
+extern void __far __pascal DQBCLOSE(void);
+extern void __far __pascal DQBCOPYLAYER(int srcLayer, int dstLayer);
+extern void __far __pascal DQBCLEARLAYER(int layer);
+extern void __far __pascal DQBWAIT(int times);
+extern void __far __pascal DQBINITVGA(void);
+extern void __far __pascal DQBINITTEXT(void);
+extern void __far __pascal DQBFADETO(int red, int green, int blue);
+extern void __far __pascal DQBPALOFF(void);
+extern void __far __pascal XDQBSETPAL(char __far *pal);
+extern void __far __pascal DQBBOX(int layer, int x1, int y1, int x2, int y2, int col);
+extern void __far __pascal DQBFILTERBOX(int layer, int x1, int y1, int x2, int y2, int col, int bmap);
+extern int __far __pascal DQBCREATEBMAP(int bmap, int firstCol, int lastCol);
+extern int __far __pascal XDQBLOADBMAP(int bmap, char __far *file);
+extern int __far __pascal XDQBLOADIMAGE(int layer, int x, int y, char __far *file, char __far *pal, int __near *imgW, int __near *imgH);
+extern void __far __pascal DQBGET(int layer, int x1, int y1, int x2, int y2, void __far *buf);
+extern void __far __pascal DQBPUT(int layer, int x, int y, void __far *buf);
+extern void __far __pascal DQBSETTRANSPUT(void);
+extern int __far __pascal XDQBLOADFONT(char __far *file);
+extern void __far __pascal XDQBPRINT(int layer, char __far *text, int x, int y, int col, int style);
+extern void __far __pascal DQBINSTALLKEYBOARD(void);
+extern void __far __pascal DQBREMOVEKEYBOARD(void);
+extern int __far __pascal DQBKEY(int scanCode);	/* -1 pressed, 0 released */
+extern int __far __pascal XDQBINKEY(void);	/* ASCII char, 0 = none */
+extern int __far __pascal DQBINSTALLSB(int volActive, int channels, int freq, int baseAddr, int irq, int dma);
+extern int __far __pascal XDQBLOADSOUND(int slot, char __far *file);
+extern void __far __pascal DQBPLAYSOUND(int soundNum, int voice, int freq, int loopFlag);
+extern void __far __pascal DQBSTOPVOICE(int voice);
+extern int __far __pascal DQBSHIFTLEFT(int value, int nBits);
+extern int __far __pascal DQBSHIFTRIGHT(int value, int nBits);
+extern int __far __pascal DQBSETBIT(int value, int bit);
+extern int __far __pascal DQBREADBIT(int value, int bit);
 
-/*
-DECLARE FUNCTION DQBver% ()
-DECLARE FUNCTION DQBid$ ()
-DECLARE FUNCTION DQBmapLayer% (BYVAL Layer%)
-DECLARE SUB DQBpeek (BYVAL DataSeg%, BYVAL DataOff%, BYVAL Offset&, BYVAL Length%)
-DECLARE SUB DQBpoke (BYVAL DataSeg%, BYVAL DataOff%, BYVAL Offset&, BYVAL Length%)
-DECLARE SUB DQBsort (BYVAL ArraySeg%, BYVAL ArrayOff%, BYVAL NumRecords%, BYVAL RecordLen%, BYVAL IndexOff%)
-DECLARE FUNCTION DQBangle% (BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%)
-DECLARE SUB DQBinitVGA ()
-DECLARE SUB DQBinitText ()
-DECLARE FUNCTION DQBsetBaseLayer% (BYVAL Layer%)
-DECLARE SUB DQBcopyLayer (BYVAL SourceLayer%, BYVAL DestLayer%)
-*/
-//DECLARE SUB DQBclearLayer (BYVAL Layer%)
-void DQBclearLayer(int Layer);
-//DECLARE SUB DQBwait (BYVAL Times%)
-void DQBwait(int Times);
-/*
-DECLARE SUB DQBsetFrameRate (BYVAL FPS%)
-DECLARE FUNCTION DQBframeReady% ()
-DECLARE FUNCTION DQBerror$ ()
-*/
+/* ------------------------------------------------------------------ */
+/* C wrappers (implemented in directqb.c). All return 0 on success    */
+/* where the ASM reports errors (same as the QB originals).           */
+/* ------------------------------------------------------------------ */
+int DQBinit(int numLayers, int numSounds, int memSize);
+void DQBclose(void);
+void DQBcopyLayer(int srcLayer, int dstLayer);
+void DQBclearLayer(int layer);
+void DQBwait(int times);
+void DQBinitVGA(void);
+void DQBinitText(void);
+void DQBfadeTo(int red, int green, int blue);
+void DQBpalOff(void);
+void DQBsetPal(void __far *pal);	/* 768 bytes, any segment */
+void DQBbox(int layer, int x1, int y1, int x2, int y2, int col);
+void DQBfilterBox(int layer, int x1, int y1, int x2, int y2, int col, int bmap);
+int DQBcreateBMap(int bmap, int firstCol, int lastCol);
+int DQBloadBMap(int bmap, const char *file);	/* file: literal/global */
+int DQBloadImage(int layer, int x, int y, const char *file, void __far *pal, int *imgW, int *imgH);
+void DQBget(int layer, int x1, int y1, int x2, int y2, void __far *buf);
+void DQBput(int layer, int x, int y, const void __far *buf);
+void DQBsetTransPut(void);
+int DQBloadFont(const char *file);	/* file: literal/global */
+void DQBprint(int layer, const char *text, int x, int y, int col);
+void DQBinstallKeyboard(void);
+void DQBremoveKeyboard(void);
+int DQBkey(int scanCode);
+char DQBinkey(void);
+int DQBinstallSB(int volActive, int channels, int freq, int baseAddr, int irq, int dma);
+int DQBloadSound(int slot, const char *file);	/* file: literal/global */
+void DQBplaySound(int soundNum, int voice, int freq, int loopFlag);
+void DQBstopVoice(int voice);
+int DQBshiftLeft(int value, int nBits);
+int DQBshiftRight(int value, int nBits);
 
-//' Procedures from DRAW.OBJ:
-/*DECLARE SUB DQBcopyTransLayer (BYVAL SourceLayer%, BYVAL DestLayer%)
-DECLARE SUB DQBcopyHitLayer (BYVAL SourceLayer%, BYVAL DestLayer%, BYVAL Col%)
-DECLARE SUB DQBpset (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL Col%)
-DECLARE FUNCTION DQBpoint% (BYVAL Layer%, BYVAL x%, BYVAL y%)
-DECLARE SUB DQBline (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL Col%)
-DECLARE SUB DQBgline (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL Col1%, BYVAL Col2%)
-DECLARE SUB DQBellipse (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL rx%, BYVAL ry%, BYVAL Col%)
-DECLARE SUB DQBbox (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL Col%)
-DECLARE SUB DQBboxf (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL Col%)
-DECLARE SUB DQBpaint (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL Col%)
-DECLARE SUB DQBscroll (BYVAL Layer%, BYVAL dx%, BYVAL dy%)
-DECLARE SUB DQBscrollArea (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL Direction%)
-DECLARE SUB DQBsetTransPut ()
-DECLARE SUB DQBsetSolidPut ()
-*/
-//DECLARE SUB DQBget (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL BufSeg%, BYVAL BufOff%)
-void DQBget(int Layer, int x1, int y1, int x2, int y2, char **BufOff);
-//DECLARE SUB DQBput (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%)
-void DQBput (int Layer, int x, int y, char *BufOff);
-
-// ' Procedures from IMAGE.OBJ:
-// DECLARE FUNCTION DQBloadImage% (Layer%, x%, y%, FileName$, Pal$, imgWidth%, imgHeight%)
-int DQBloadImage(int Layer, int x, int y, char *FileName, void *Pal, int *imgWidth, int *imgHeight);
-
-/*DECLARE FUNCTION DQBsaveImage% (Layer%, x1%, y1%, x2%, y2%, FileName$, Pal$, Format%)
-DECLARE FUNCTION DQBplayFLI% (FileName$, BufLayer%, KeyStop%, LoopFlag%)
-DECLARE FUNCTION DQBopenFLI% (FileName$, Frames%, Speed%)
-DECLARE SUB DQBplayFLIstep (BYVAL Layer%)
-DECLARE SUB DQBcloseFLI ()
-
-' Procedures from SPRITE.OBJ:
-DECLARE FUNCTION DQBsize% (BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%)
-DECLARE SUB DQBsetClipBox (BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%)
-DECLARE SUB DQBfPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%)
-DECLARE SUB DQBsPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%, BYVAL NewWidth%, BYVAL NewHeight%)
-DECLARE SUB DQBrPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%, BYVAL Angle%, BYVAL Zoom%)
-DECLARE SUB DQBxPut (BYVAL SourceLayer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL DestLayer%, BYVAL x%, BYVAL y%)
-DECLARE SUB DQBmPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%, BYVAL Flip%)
-DECLARE SUB DQBhPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%, BYVAL Col%)
-DECLARE SUB DQBtPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%, BYVAL BitMode%)
-DECLARE SUB DQBpPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%, BYVAL Pattern%)
-DECLARE SUB DQBputOver (BYVAL BackSeg%, BYVAL BackOff%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%)
-DECLARE SUB DQBsetCollideMethod (BYVAL Method%)
-DECLARE FUNCTION DQBcollide% (BYVAL x1%, BYVAL y1%, BYVAL Seg1%, BYVAL Off1%, BYVAL x2%, BYVAL y2%, BYVAL Seg2%, BYVAL Off2%)
-DECLARE FUNCTION DQBcollideOnLayer% (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL SpriteSeg%, BYVAL SpriteOff%)
-
-' Procedures from BIT.OBJ:
-DECLARE FUNCTION DQBsetBit% (BYVAL Value%, BYVAL Bit%)
-DECLARE FUNCTION DQBresetBit% (BYVAL Value%, BYVAL Bit%)
-DECLARE FUNCTION DQBreadBit% (BYVAL Value%, BYVAL Bit%)
-DECLARE FUNCTION DQBtoggleBit% (BYVAL Value%, BYVAL Bit%)
-DECLARE FUNCTION DQBshiftLeft% (BYVAL Value%, BYVAL nBits%)
-DECLARE FUNCTION DQBshiftRight% (BYVAL Value%, BYVAL nBits%)
-
-' Procedures from PALETTE.OBJ:
-DECLARE SUB DQBsetCol (BYVAL ColorIndex%, BYVAL Red%, BYVAL Green%, BYVAL Blue%)
-DECLARE SUB DQBgetCol (BYVAL ColorIndex%, Red%, Green%, Blue%)
-DECLARE FUNCTION DQBfindCol% (BYVAL Red%, BYVAL Green%, BYVAL Blue%)
-DECLARE FUNCTION DQBfindPalCol% (Pal$, Red%, Green%, Blue%)
-DECLARE SUB DQBsetPal (Pal$)
-DECLARE SUB DQBgetPal (Pal$)
-DECLARE SUB DQBfadeIn (Pal$)
-DECLARE SUB DQBfadeStepIn (Pal$)
-DECLARE SUB DQBfadeTo (BYVAL Red%, BYVAL Green%, BYVAL Blue%)
-DECLARE SUB DQBfadeStepTo (BYVAL Red%, BYVAL Green%, BYVAL Blue%)
-DECLARE SUB DQBpalOff ()
-DECLARE SUB DQBpalRotate (BYVAL FirstCol%, BYVAL LastCol%, BYVAL RotDir%)
-
-' Procedures from FONT.OBJ:
-DECLARE SUB DQBprint (Layer%, Text$, x%, y%, Col%)
-DECLARE SUB DQBprints (Layer%, Text$, x%, y%, Col%, Style%)
-DECLARE FUNCTION DQBlen% (Text$)
-DECLARE SUB DQBsetBIOSfont ()
-*/
-// DECLARE FUNCTION DQBloadFont% (FileName$)
-int DQBloadFont(char *FileName);
-/*
-DECLARE SUB DQBsetFont (Font$)
-DECLARE SUB DQBsetTextStyle (BYVAL Style%)
-DECLARE SUB DQBsetTextBackCol (BYVAL Col%)
-DECLARE SUB DQBsetTextSpacing (BYVAL Spacing%)
-DECLARE SUB DQBsetTextBMap (BYVAL BMap%)
-DECLARE SUB DQBsetFontTexture (BYVAL TextSeg%, BYVAL TextOff%)
-
-' Procedures from BLENDING.OBJ:
-DECLARE SUB DQBfilterBox (BYVAL Layer%, BYVAL x1%, BYVAL y1%, BYVAL x2%, BYVAL y2%, BYVAL Col%, BYVAL BMap%)
-DECLARE SUB DQBbPut (BYVAL Layer%, BYVAL x%, BYVAL y%, BYVAL BufSeg%, BYVAL BufOff%, BYVAL BMap%)
-DECLARE SUB DQBcopyBlendLayer (BYVAL SourceLayer%, BYVAL DestLayer%, BYVAL BMap%)
-*/
-//DECLARE FUNCTION DQBcreateBMap% (BYVAL BMap%, BYVAL FirstCol%, BYVAL LastCol%)
-int DQBcreateBMap(int BMap, int FirstCol, int LastCol);
-//DECLARE FUNCTION DQBloadBMap% (BMap%, FileName$)
-int DQBloadBMap(int BMap, char *FileName);
-/*
-DECLARE FUNCTION DQBsaveBMap% (BMap%, FileName$)
-DECLARE SUB DQBsetBMap (BYVAL BMap%, BYVAL ForeCol%, BYVAL BackCol%, BYVAL NewCol%)
-DECLARE FUNCTION DQBgetBMap% (BYVAL BMap%, BYVAL ForeCol%, BYVAL BackCol%)
-*/
-
-// Procedures from KEYBOARD.OBJ:
-// DECLARE SUB DQBinstallKeyboard ()
-void DQBinstallKeyboard();
-// DECLARE SUB DQBremoveKeyboard ()
-void DQBremoveKeyboard();
-
-/*
-DECLARE FUNCTION DQBkey% (BYVAL ScanCode%)
-DECLARE FUNCTION DQBreadKey% ()
-DECLARE SUB DQBwaitKey (BYVAL ScanCode%)
-DECLARE FUNCTION DQBasc% (BYVAL ScanCode%, BYVAL ShiftFlag%)
-DECLARE FUNCTION DQBinkey$ ()
-*/
-
-// Procedures from SOUND.OBJ:
-// DECLARE FUNCTION DQBinstallSB% (BYVAL VolActive%, BYVAL Channels%, BYVAL Freq%, BYVAL BaseAddr%, BYVAL IRQ%, BYVAL DMA%)
-int DQBinstallSB(int VolActive, int Channels, int Freq, int BaseAddr, int IRQ, int DMA);
-// DECLARE FUNCTION DQBloadSound% (Slot%, FileName$)
-int DQBloadSound(int Slot, char *FileName);
-
-/*
-DECLARE FUNCTION DQBloadRawSound% (Slot%, FileName$, Offset&, Length&)
-DECLARE FUNCTION DQBinUse% (BYVAL Voice%)
-DECLARE SUB DQBplaySound (BYVAL SoundNum%, BYVAL Voice%, BYVAL Freq%, BYVAL LoopFlag%)
-DECLARE SUB DQBsetVoiceVol (BYVAL Voice%, BYVAL NewVol%)
-DECLARE SUB DQBpauseSound ()
-DECLARE SUB DQBresumeSound ()
-DECLARE SUB DQBstopVoice (BYVAL Voice%)
-DECLARE SUB DQBremoveSB ()
-DECLARE SUB DQBsetVolume (BYVAL Volume%)
-
-' Library constants:
-CONST FALSE = 0, TRUE = NOT FALSE, VIDEO = 0
-CONST B0 = &H8000, B1 = &H8001, B2 = &H8002, B3 = &H8003, B4 = &H8004
-CONST B5 = &H8005, B6 = &H8006, B7 = &H8007, B8 = &H8008, B9 = &H8009
-CONST BSV = 0, BMP = 1, PCX = 2
-CONST HOR = 1, VER = 2, BOX = 0, PIXEL = 1, BIT.AND = 1, BIT.OR = 2, BIT.XOR = 3
-CONST FORWARD = 0, BACKWARD = 1
-CONST CENTERED = &H8000, NONE = 0, SOLID = &H1, BOLD = &H2, ITALIC = &H4
-CONST UNDERLINED = &H8, BLENDED = &H10, TEXTURED = &H20
-CONST KEYANY = -1, KEYESC = 1, KEYENTER = 28, KEYSPACE = 57
-CONST KEYUP = 72, KEYDOWN = 80, KEYLEFT = 75, KEYRIGHT = 77
-CONST UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3
-CONST AUTO = -1, ONCE = 0, LOOPED = 1
-*/
-
-#endif // _DIRECTQB_H_
+#endif /* _DIRECTQB_H_ */
