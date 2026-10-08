@@ -1,0 +1,23 @@
+Welcome to DirectQB 1.61!
+
+DirectQB is a complete game programming library developed to work with
+QuickBasic 4.5, entirely written in assembly 386, to ensure a very fast
+execution of your QB programs.
+
+The DirectQB library comes with no LIB or QLB files; anyway, there's a
+powerful utility that will create them using the BC, LINK and LIB programs
+shipped with your copy of QuickBasic 4.5: this utility is the DirectQB Library
+Manager, and it will guide you into the creation and the maintainance of your
+copy of the library.
+
+So, run DQBMAN now; it does not require DQB, so load QB just with the "/L"
+switch. Anyway it is recommended that you compile this program and always run
+the executable version: it's faster and you'll avoid possible out of memory
+errors while running under Win95/98.
+
+For details on how to use the library, read the DIRECTQB.DOC file carefully.
+
+Enjoy!
+
+Angelo Mottola - Enhanced Creations 1998-99
+

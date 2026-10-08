@@ -1,0 +1,23 @@
+You should have the following files in your DirectQB directory; if someone is
+missing, you got a bad ZIP file, and you should download the library again.
+
+MAIN.ASM            SOUND.ASM           SCRIPT.FNT
+MAIN.OBJ            SOUND.OBJ           SMALL.FNT
+DRAW.ASM            KEYBOARD.ASM        HITECH.FNT
+DRAW.OBJ            KEYBOARD.OBJ        FILELIST.TXT
+SPRITE.ASM          MOUSE.ASM           README.1ST
+SPRITE.OBJ          MOUSE.OBJ
+IMAGE.ASM           JOYSTICK.ASM
+IMAGE.OBJ           JOYSTICK.OBJ
+FONT.ASM            3D.ASM
+FONT.OBJ            3D.OBJ
+BLENDING.ASM        ERRORS.INC
+BLENDING.OBJ        DIRECTQB.DOC
+PALETTE.ASM         DQBMAN.BAS
+PALETTE.OBJ         DQBMAN.MHL
+BIT.ASM             DQBTOOLS.BAS
+BIT.OBJ             ECLOGO.BAS
+DISK.ASM            ECLOGO.PCX
+DISK.OBJ            DQBENC.BAS
+
+
