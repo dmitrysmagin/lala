@@ -346,7 +346,7 @@ static void test_render(void)
 	engineLoadTileProperties();
 	engineLoadSpriteProperties();
 	engineLoadSpriteMapping();
-	rc = DQBloadFont("GFX\\LALA.FNT");
+	rc = xDQBloadFont("GFX\\LALA.FNT");
 	CHECK("render.font", rc, 0);
 	engineLoadTileset();
 	engineLoadSpriteset();
@@ -385,7 +385,7 @@ static void test_render(void)
 	DQBcopyLayer(1, VIDEO);
 
 	/* main/showTitle calls not covered above */
-	DQBsetPal(prefs.pal);
+	xDQBsetPal(prefs.pal);
 	DQBfadeTo(0, 0, 0);
 	DQBinitVGA();
 	DQBinitText();

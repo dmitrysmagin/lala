@@ -65,26 +65,23 @@
   data fixups ⇒ keep (CODE + early DGROUP) under ~64K (currently
   ~57K with engtest; the shipped game without engtest is smaller).
 
-## 3. `directqb.h/.c` binding layer — DONE
+## 3. `directqb.h/.c` binding layer — DONE (wrappers removed)
 
-- `src/directqb.h`: raw `extern __far __pascal` declarations
-  (UPPERCASE, exact word layouts from the "; Stack layout:" comments)
-  + mixed-case C wrappers. `__pascal` needs no `#pragma aux`.
-- X-procs take raw seg:off words (ASCIZ), NOT QB descriptors —
-  wrappers build them from near literals/globals via `segread()`.
-  `void __far *` buffers may point anywhere; `int *w/h` OUT params are
-  DGROUP-staged in `directqb.c` (callers pass stack locals, but the
-  ASM stores through DS).
-- `DQBloadImage` pal param is never NULL in the original (`dummy$`);
-  `engineLoadSpriteset` got a static 768B dummy (NULL would scribble
-  the IVT). `DQBget` dests are `_fmalloc`'d (tiles 260B, sprites 580B;
-  old code passed `&ptr` into a no-op stub).
-- All asset paths normalized to DOS `\` (were `/`, `//`).
-- `DQBerror$` skipped (BC-compiled, in `CALLS.OBJ`); `DQBinkey$`
-  reimplemented over `XDQBINKEY`.
-- Verified: `bin\lala.exe` (55KB) runs the full init flow in DOSBox —
-  DQBinit, font, SB16, 10 WAVs, keyboard, tileset+spriteset,
-  blender map, clean close; full log + stdio flush prove clean exit.
+- `src/directqb.h` declares every used entry point directly with
+  `extern __far __pascal` in CamelCase. `__pascal` uppercases the
+  symbol, so e.g. `DQBinit` here IS `DQBINIT` in the lib (proven at
+  obj level via `wdis`: `call DQBINIT`). No wrappers, no pragmas.
+- Only two thin wrappers stay in `src/directqb.c` (real added value):
+  `DQBloadImage` stages stack int locals through DGROUP statics
+  (`xDQBloadImage` stores imgW/imgH through DS), and `DQBprint`
+  supplies `style = 0`. Call sites using old wrapper names
+  (`DQBloadFont/Sound/BMap/SetPal/Inkey`) were renamed to the lib's
+  `xDQB…` names.
+- Far-pointer params take literals/DGROUP buffers straight through:
+  the compiler materializes near→far with `push ds` + DGROUP offset.
+- Verified: `lala.exe test` → **ENGTEST: PASS 121/121** with zero
+  wrappers in the render path; normal binary reaches the title demo
+  loop; `spike/` still passes.
 
 ## 4. Port `LALA.BAS` + `ENGINE.BAS` — DONE
 
@@ -101,6 +98,8 @@
   `LTRIM$(STR$)` → `sprintf %0*d`; `DQBkey(&H..)` scancodes unchanged.
 - DQB-string params must be DGROUP: asset paths via a static staging
   buffer, `prCh`/`statBuf`/title `pal` statics (documented in headers).
+  All asset paths normalized to DOS `\` (were `/`, `//`).
+  `DQBerror$` skipped (BC-compiled, in `CALLS.OBJ` — plain messages).
 - Verified: `lala.exe test` runs 121-check `src/engtest.c` headless in
   DOSBox — loaders (hand-verified values), collision/keyhole/frames,
   8-frame physics smoke (matches hand computation), full render path
@@ -148,3 +147,8 @@ Phase 2 engine (this doc) → Phase 3 FMENGINE → playtest pass.
   MSYS bash); check real exit codes, not pipe-masked ones.
 - OpenWatcom 16-bit `int` is 16-bit (QB INTEGER semantics hold,
   including `-1` = true); `rand()` spans 0..32767 like QB's RND range.
+- Known open issue (not blocking): bare-bones probe binaries calling
+  `DQBinit` hang intermittently under DOSBox (layout/timing-sensitive,
+  mechanism unknown — suspect INT 67h/33h timing; the full game binary
+  inits reliably). Verify DQB-level behavior via the game binary
+  (`lala.exe test`), not via mini-probes.

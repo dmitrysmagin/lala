@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 
 	/* Load font */
 	printf("LOADING FONT\n");
-	i = DQBloadFont("GFX\\LALA.FNT");
+	i = xDQBloadFont("GFX\\LALA.FNT");
 	if (i)	{
 		printf("ERROR LOADING FONT!\n");
 		DQBclose();
@@ -58,16 +58,16 @@ int main(int argc, char *argv[])
 
 	/* Load sounds */
 	printf("LOADING SOUNDS\n");
-	i = DQBloadSound(8, "SFX\\AH.WAV");
-	i |= DQBloadSound(1, "SFX\\BOLT.WAV");
-	i |= DQBloadSound(2, "SFX\\HIT.WAV");
-	i |= DQBloadSound(3, "SFX\\JUMP.WAV");
-	i |= DQBloadSound(4, "SFX\\KEY.WAV");
-	i |= DQBloadSound(5, "SFX\\LIFE.WAV");
-	i |= DQBloadSound(6, "SFX\\OBJECT.WAV");
-	i |= DQBloadSound(7, "SFX\\PINCHE.WAV");
-	i |= DQBloadSound(9, "SFX\\AMBIENT1.WAV");
-	i |= DQBloadSound(10, "SFX\\AMBIENT2.WAV");
+	i = xDQBloadSound(8, "SFX\\AH.WAV");
+	i |= xDQBloadSound(1, "SFX\\BOLT.WAV");
+	i |= xDQBloadSound(2, "SFX\\HIT.WAV");
+	i |= xDQBloadSound(3, "SFX\\JUMP.WAV");
+	i |= xDQBloadSound(4, "SFX\\KEY.WAV");
+	i |= xDQBloadSound(5, "SFX\\LIFE.WAV");
+	i |= xDQBloadSound(6, "SFX\\OBJECT.WAV");
+	i |= xDQBloadSound(7, "SFX\\PINCHE.WAV");
+	i |= xDQBloadSound(9, "SFX\\AMBIENT1.WAV");
+	i |= xDQBloadSound(10, "SFX\\AMBIENT2.WAV");
 
 	if (i) {
 		printf("ERROR LOADING SOUNDS!\n");
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	i = DQBloadBMap(1, "GFX\\LALA.BMA");
+	i = xDQBloadBMap(1, "GFX\\LALA.BMA");
 	if (i) {
 		DQBinitText();
 		printf("ERROR loading blender map\n");
@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 		engineInitGame();
 		i = showTitle();
 		if (i) {
-			DQBsetPal(prefs.pal);
+			xDQBsetPal(prefs.pal);
 			r = engineDoGame(-1);
 			if (r == -1)
 				showEnding();
@@ -147,7 +147,7 @@ static void showEnding(void)
 	DQBpalOff();
 	DQBcopyLayer(3, 1);
 	FMload("MUSIC\\MC12.S3M");
-	DQBsetPal(pal);
+	xDQBsetPal(pal);
 
 	DQBcopyLayer(1, VIDEO);
 	for (d = 1; d <= 32; d++)
@@ -180,9 +180,9 @@ static void showEnding(void)
 			DQBwait(1);
 	}
 
-	while (DQBinkey())
+	while (xDQBinkey())
 		;
-	while (!DQBinkey())
+	while (!xDQBinkey())
 		;
 
 	/* PLAY STOP (Phase 3) */
@@ -204,7 +204,7 @@ static int showTitle(void)
 	}
 
 	FMload("MUSIC\\G66A.S3M");
-	DQBsetPal(pal);
+	xDQBsetPal(pal);
 	r = engineDoGame(0);
 	/* PLAY STOP (Phase 3) */
 	BeSilent();
