@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
+#include <i86.h>
 
 #include "directqb.h"
 #include "engine.h"
@@ -52,6 +53,59 @@ int qbReadInt(FILE *f)
 		c = fgetc(f);
 	}
 	return neg ? -v : v;
+}
+
+#define NWMAX 160
+static void __far *nwptr[NWMAX];
+static void __far *nwbase[NWMAX];
+
+void __far *fmalloc_nw(unsigned size)
+{
+	char __far *base;
+	char __far *usable;
+	unsigned long off;
+	int i;
+	base = _fmalloc(size + size);
+	if (!base)
+		return 0;
+	off = (unsigned long)FP_OFF(base);
+	if (off + (unsigned long)size > 0x10000UL)
+		usable = base + size;	/* second half: provably clean */
+	else
+		usable = base;
+	for (i = 0; i < NWMAX; i++) {
+		if (!nwptr[i]) {
+			nwptr[i] = usable;
+			nwbase[i] = base;
+			break;
+		}
+	}
+	return usable;
+}
+
+void __far *fcalloc_nw(unsigned n, unsigned size)
+{
+	void __far *p = fmalloc_nw(n * size);
+	if (p)
+		_fmemset(p, 0, n * size);
+	return p;
+}
+
+void ffree_nw(void __far *p, unsigned size)
+{
+	int i;
+	(void)size;
+	if (!p)
+		return;
+	for (i = 0; i < NWMAX; i++) {
+		if (nwptr[i] == p) {
+			_ffree(nwbase[i]);
+			nwptr[i] = 0;
+			nwbase[i] = 0;
+			return;
+		}
+	}
+	/* Not ours (or table full at alloc): leak rather than corrupt. */
 }
 
 /* True when only separators remain (QB's EOF(f%) for our TXT files). */
@@ -171,7 +225,7 @@ void engineLoadSpriteset()
 	x = 0; y = 0;
 	for (i = 0; i < prefs.numSprites; i++) {
 		/* 24x24 sprite: 4-byte header + 576 pixels (see DQBget). */
-		spriteset[i] = _fmalloc(580);
+		spriteset[i] = fmalloc_nw(580);
 		DQBget(3, x, y, 23 + x, 23 + y, spriteset[i]);
 		x += 24;
 		if (x == 192) {
@@ -309,7 +363,7 @@ char *engineMakeNumber(int digits, int value)
 int __far *engineMapLoad(void)
 {
 	int total = prefs.mapW * prefs.mapH * prefs.screenW * prefs.screenH;
-	int __far *map = _fmalloc(total * sizeof(int));
+	int __far *map = fmalloc_nw(total * sizeof(int));
 	int index = 0;
 	FILE *f = fopen(asset("MAP", prefs.mapFile), "rb");
 	while (!feof(f) && index < total) {
@@ -775,10 +829,10 @@ int engineDoGame(int flag)
 	/* Buffer to contain current screen.
 	 * Screen area is 20x12, letterboxed with blank tiles
 	 * (avoids lots of checks, and matches cToIdx layout). */
-	TypeTileLayers __far *curScreenBuff = _fcalloc(SBUFF_ENTRIES, sizeof(TypeTileLayers));
+	TypeTileLayers __far *curScreenBuff = fcalloc_nw(SBUFF_ENTRIES, sizeof(TypeTileLayers));
 	int __far *map;
-	TypeEnems __far *enems = _fcalloc((prefs.mapW * prefs.mapH) * ENEM_SLOTS, sizeof(TypeEnems));
-	TypeHotSpots __far *hotSpots = _fcalloc(prefs.mapW * prefs.mapH, sizeof(TypeHotSpots));
+	TypeEnems __far *enems = fcalloc_nw((prefs.mapW * prefs.mapH) * ENEM_SLOTS, sizeof(TypeEnems));
+	TypeHotSpots __far *hotSpots = fcalloc_nw(prefs.mapW * prefs.mapH, sizeof(TypeHotSpots));
 	int hotSpotsTiles[4];
 	int res = 0;
 	int lastRow, lastPant, nPant;
@@ -822,7 +876,7 @@ int engineDoGame(int flag)
 		if (prefs.bgL2)
 			DQBplaySound(prefs.bgL2, 6, 11025, LOOPED);
 
-		/* music (Phase 3; FMload is a stub for now) */
+		/* music */
 		if (prefs.bgM[0])
 			FMload(asset("MUSIC", prefs.bgM));
 	}
@@ -966,16 +1020,17 @@ int engineDoGame(int flag)
 		}
 	}
 
-	/* PLAY STOP (Phase 3: music stop) */
+	/* PLAY STOP */
+	FMstop();
 	BeSilent();
 
 	DQBstopVoice(5);
 	DQBstopVoice(6);
 
-	_ffree(curScreenBuff);
-	_ffree(map);
-	_ffree(enems);
-	_ffree(hotSpots);
+	ffree_nw(curScreenBuff, SBUFF_ENTRIES * sizeof(TypeTileLayers));
+	ffree_nw(map, prefs.mapW * prefs.mapH * prefs.screenW * prefs.screenH * sizeof(int));
+	ffree_nw(enems, (prefs.mapW * prefs.mapH) * ENEM_SLOTS * sizeof(TypeEnems));
+	ffree_nw(hotSpots, prefs.mapW * prefs.mapH * sizeof(TypeHotSpots));
 
 	return res;
 }
@@ -991,7 +1046,7 @@ void engineLoadTileset()
 	
 	for (i = 0; i < prefs.numTiles; i++) {
 		/* 16x16 tile: 4-byte header + 256 pixels (see DQBget). */
-		tileset[i] = _fmalloc(260);
+		tileset[i] = fmalloc_nw(260);
 		DQBget(3, x, y, 15 + x, 15 + y, tileset[i]);
 		x += 16;
 		if (x == 320) {
@@ -1002,4 +1057,5 @@ void engineLoadTileset()
 
 	DQBclearLayer(3);
 }
-
+
+

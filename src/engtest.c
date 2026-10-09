@@ -1,47 +1,54 @@
 /* engtest.c — headless self-test for the ENGINE.BAS port.
  *
- * Runs as `lala.exe test` with bin/ mounted as C:. No video, sound or
+ * Runs as bin\test.exe with bin/ mounted as C:. No video, sound or
  * keyboard needed (DQBkey reads an all-zero table headless).
  * Every expectation below was hand-verified against lala-qb/ENGINE.BAS
  * and the data files. Writes TESTLOG.TXT, returns failure count.
  *
  * NOTE: engineDetectCollision returns C truth (1/0); QB returns -1/0.
  * Both are used only as IF conditions, so this is equivalent.
+ *
+ * NOTE 2: checks go through check()/checkstr() FUNCTIONS (not inlined
+ * macros): near calls need no fixups, keeping this module small enough
+ * for wlink-beta (see PORTING.md quirks).
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
+#include <i86.h>
 
 #include "directqb.h"
 #include "engine.h"
+#include "fmengine.h"
 
 static int fails = 0;
 static FILE *logf;
 
-#define CHECK(name, got, want) do { \
-	int _g = (got), _w = (want); \
-	if (_g != _w) { \
-		fprintf(logf, "FAIL %s: got %d want %d\n", name, _g, _w); \
-		printf("FAIL %s: got %d want %d\n", name, _g, _w); \
-		fails++; \
-	} else { \
-		fprintf(logf, "ok   %s = %d\n", name, _g); \
-	} \
-	fflush(logf); \
-} while (0)
+static void check(const char *name, int got, int want)
+{
+	if (got != want) {
+		fprintf(logf, "FAIL %s: got %d want %d\n", name, got, want);
+		fails++;
+	} else {
+		fprintf(logf, "ok   %s = %d\n", name, got);
+	}
+	fflush(logf);
+}
 
-#define CHECKSTR(name, got, want) do { \
-	const char *_g = (got); \
-	if (strcmp(_g, want) != 0) { \
-		fprintf(logf, "FAIL %s: got '%s' want '%s'\n", name, _g, want); \
-		printf("FAIL %s: got '%s' want '%s'\n", name, _g, want); \
-		fails++; \
-	} else { \
-		fprintf(logf, "ok   %s = '%s'\n", name, _g); \
-	} \
-	fflush(logf); \
-} while (0)
+static void checkstr(const char *name, const char *got, const char *want)
+{
+	if (strcmp(got, want) != 0) {
+		fprintf(logf, "FAIL %s: got '%s' want '%s'\n", name, got, want);
+		fails++;
+	} else {
+		fprintf(logf, "ok   %s = '%s'\n", name, got);
+	}
+	fflush(logf);
+}
+
+#define CHECK(n, g, w) check(n, g, w)
+#define CHECKSTR(n, g, w) checkstr(n, g, w)
 
 static void test_tables(void)
 {
@@ -109,13 +116,13 @@ static void test_loaders(void)
 	CHECK("map5768", map[5768], 24);
 	CHECK("map5882", map[5882], 0);
 	CHECK("map8639", map[8639], 0);
-	_ffree(map);
+	ffree_nw(map, 8640 * sizeof(int));
 }
 
 static void test_enems_hotspots(void)
 {
-	TypeEnems __far *en = _fcalloc(36 * ENEM_SLOTS, sizeof(TypeEnems));
-	TypeHotSpots __far *hs = _fcalloc(36, sizeof(TypeHotSpots));
+	TypeEnems __far *en = fcalloc_nw(36 * ENEM_SLOTS, sizeof(TypeEnems));
+	TypeHotSpots __far *hs = fcalloc_nw(36, sizeof(TypeHotSpots));
 
 	engineLoadEnems(en);
 	CHECK("en00.x", en[0].x, 96);
@@ -141,15 +148,15 @@ static void test_enems_hotspots(void)
 	CHECK("hs24.y", hs[24].y, 3);
 	CHECK("hs24.t", hs[24].t, 1);
 
-	_ffree(en);
-	_ffree(hs);
+	ffree_nw(en, 36 * ENEM_SLOTS * sizeof(TypeEnems));
+	ffree_nw(hs, 36 * sizeof(TypeHotSpots));
 }
 
 static void test_prepare(void)
 {
 	int __far *map = engineMapLoad();
-	TypeTileLayers __far *buff = _fcalloc(SBUFF_ENTRIES, sizeof(TypeTileLayers));
-	TypeHotSpots __far *hs = _fcalloc(36, sizeof(TypeHotSpots));
+	TypeTileLayers __far *buff = fcalloc_nw(SBUFF_ENTRIES, sizeof(TypeTileLayers));
+	TypeHotSpots __far *hs = fcalloc_nw(36, sizeof(TypeHotSpots));
 
 	engineLoadHotSpots(hs);
 	engineScreenPrepare(24, map, buff, hs);
@@ -174,16 +181,16 @@ static void test_prepare(void)
 	CHECK("hotSpotX", prefs.hotSpotX, 176);
 	CHECK("hotSpotY", prefs.hotSpotY, 48);
 
-	_ffree(map);
-	_ffree(buff);
-	_ffree(hs);
+	ffree_nw(map, 8640 * sizeof(int));
+	ffree_nw(buff, SBUFF_ENTRIES * sizeof(TypeTileLayers));
+	ffree_nw(hs, 36 * sizeof(TypeHotSpots));
 }
 
 static void test_detect(void)
 {
-	TypeTileLayers __far *buff = _fcalloc(SBUFF_ENTRIES, sizeof(TypeTileLayers));
-	int __far *maparr = _fcalloc(100, sizeof(int));
-	TypeEnems __far *en = _fcalloc(ENEM_SLOTS, sizeof(TypeEnems));
+	TypeTileLayers __far *buff = fcalloc_nw(SBUFF_ENTRIES, sizeof(TypeTileLayers));
+	int __far *maparr = fcalloc_nw(100, sizeof(int));
+	TypeEnems __far *en = fcalloc_nw(ENEM_SLOTS, sizeof(TypeEnems));
 	int r;
 
 	/* keyhole: buff[23] is cToIdx(0,0), behaviour 10 */
@@ -220,14 +227,14 @@ static void test_detect(void)
 	player.state = STATEFLICKER;
 	CHECK("coll.flicker", engineDetectCollision(0, 0, en, &player), 0);
 
-	_ffree(buff);
-	_ffree(maparr);
-	_ffree(en);
+	ffree_nw(buff, SBUFF_ENTRIES * sizeof(TypeTileLayers));
+	ffree_nw(maparr, 100 * sizeof(int));
+	ffree_nw(en, 36 * ENEM_SLOTS * sizeof(TypeEnems));
 }
 
 static void test_frames(void)
 {
-	TypeEnems __far *en = _fcalloc(ENEM_SLOTS, sizeof(TypeEnems));
+	TypeEnems __far *en = fcalloc_nw(ENEM_SLOTS, sizeof(TypeEnems));
 	TypePlayer pl;
 
 	/* player frames (mapping: 0,1,0,2,1,2,3,4,3,5,4,5,...) */
@@ -270,7 +277,7 @@ static void test_frames(void)
 	CHECK("eframe.spr", en[0].sprId, 15);
 	CHECK("eframe.skip", en[1].sprId, -99);
 
-	_ffree(en);
+	ffree_nw(en, 36 * ENEM_SLOTS * sizeof(TypeEnems));
 }
 
 static void test_init_move(void)
@@ -298,9 +305,9 @@ static void test_init_move(void)
 	 * y = 1024+12+24+...+96 = 1456; tiles below are air (verified). */
 	engineInitPlayer();
 	map = engineMapLoad();
-	buff = _fcalloc(SBUFF_ENTRIES, sizeof(TypeTileLayers));
-	en = _fcalloc(36 * ENEM_SLOTS, sizeof(TypeEnems));
-	hs = _fcalloc(36, sizeof(TypeHotSpots));
+	buff = fcalloc_nw(SBUFF_ENTRIES, sizeof(TypeTileLayers));
+	en = fcalloc_nw(36 * ENEM_SLOTS, sizeof(TypeEnems));
+	hs = fcalloc_nw(36, sizeof(TypeHotSpots));
 	engineLoadEnems(en);
 	engineLoadHotSpots(hs);
 	engineScreenPrepare(24, map, buff, hs);
@@ -317,10 +324,10 @@ static void test_init_move(void)
 	CHECK("smoke.state", player.state, STATENORMAL);
 	CHECK("smoke.attempt", player.attempt, 0);
 
-	_ffree(map);
-	_ffree(buff);
-	_ffree(en);
-	_ffree(hs);
+	ffree_nw(map, 8640 * sizeof(int));
+	ffree_nw(buff, SBUFF_ENTRIES * sizeof(TypeTileLayers));
+	ffree_nw(en, 36 * ENEM_SLOTS * sizeof(TypeEnems));
+	ffree_nw(hs, 36 * sizeof(TypeHotSpots));
 }
 
 /* Full render path with real DQB (layers are RAM buffers; works headless).
@@ -348,18 +355,24 @@ static void test_render(void)
 	engineLoadSpriteMapping();
 	rc = xDQBloadFont("GFX\\LALA.FNT");
 	CHECK("render.font", rc, 0);
+	fprintf(logf, "cp tileset\n");
+	fflush(logf);
 	engineLoadTileset();
+	fprintf(logf, "cp spriteset\n");
+	fflush(logf);
 	engineLoadSpriteset();
 
 	DQBclearLayer(3);
 	rc = DQBloadImage(3, prefs.screenPos.x, prefs.screenPos.y,
 		"GFX\\BACKDROP.PCX", prefs.pal, &w, &h);
 	CHECK("render.backdrop", rc, 0);
+	fprintf(logf, "cp prepare\n");
+	fflush(logf);
 
 	map = engineMapLoad();
-	en = _fcalloc(36 * ENEM_SLOTS, sizeof(TypeEnems));
-	hs = _fcalloc(36, sizeof(TypeHotSpots));
-	buff = _fcalloc(SBUFF_ENTRIES, sizeof(TypeTileLayers));
+	en = fcalloc_nw(36 * ENEM_SLOTS, sizeof(TypeEnems));
+	hs = fcalloc_nw(36, sizeof(TypeHotSpots));
+	buff = fcalloc_nw(SBUFF_ENTRIES, sizeof(TypeTileLayers));
 	engineLoadEnems(en);
 	engineLoadHotSpots(hs);
 	engineScreenPrepare(24, map, buff, hs);
@@ -392,12 +405,103 @@ static void test_render(void)
 
 	DQBclose();
 
-	_ffree(map);
-	_ffree(en);
-	_ffree(hs);
-	_ffree(buff);
+	ffree_nw(map, 8640 * sizeof(int));
+	ffree_nw(en, 36 * ENEM_SLOTS * sizeof(TypeEnems));
+	ffree_nw(hs, 36 * sizeof(TypeHotSpots));
+	ffree_nw(buff, SBUFF_ENTRIES * sizeof(TypeTileLayers));
 
 	fprintf(logf, "render.done\n");
+	fflush(logf);
+}
+
+static unsigned long fmWrites(void)
+{
+	unsigned long w;
+	_disable();
+	w = fm_writes;
+	_enable();
+	return w;
+}
+
+/* FMENGINE.BAS port: headers hand-verified against the S3M files. */
+static void test_fm(void)
+{
+	int v, f;
+	unsigned long wr0, wr1;
+
+	fprintf(logf, "-- fm\n");
+	fflush(logf);
+
+	CHECK("fminit", FMinit(), 1);
+	/* EFFECTS.S3M: ordnum=2, insnum=30 -> effpptr = 0x60+2+60 */
+	CHECK("effpptr", (int)fmdata.effpptr, 158);
+
+	FMload("MUSIC\\G66A.S3M");
+	CHECK("g66.ord", fmdata.ordnum, 10);
+	CHECK("g66.ins", fmdata.insnum, 9);
+	CHECK("g66.pat", fmdata.patnum, 4);
+	CHECK("g66.A", fmdata.effectA, 6);
+	CHECK("g66.T", fmdata.effectT, 125);
+	CHECK("g66.o0", order[0], 0);
+	CHECK("g66.o1", order[1], 2);
+
+	FMload("MUSIC\\MC12.S3M");
+	CHECK("mc.ord", fmdata.ordnum, 10);
+	CHECK("mc.ins", fmdata.insnum, 17);
+	CHECK("mc.pat", fmdata.patnum, 10);
+	CHECK("mc.A", fmdata.effectA, 6);
+	CHECK("mc.T", fmdata.effectT, 95);
+	CHECK("mc.o0", order[0], 8);
+
+	FMload("MUSIC\\DESORUIN.S3M");
+	CHECK("de.ord", fmdata.ordnum, 32);
+	CHECK("de.ins", fmdata.insnum, 13);
+	CHECK("de.pat", fmdata.patnum, 9);
+	CHECK("de.o0", order[0], 0);
+
+	/* note2period goldens (DESORUIN c4spd 8383/4181, int table) */
+	CHECK("n2p.a", note2period(0, 4, 1), 1707);
+	CHECK("n2p.b", note2period(5, 2, 2), 10265);
+	CHECK("n2p.c4z", note2period(0, 4, 0), 0);
+
+	/* VibVal (sine peak at 16, BYREF phase reset at >= 64) */
+	v = 0;
+	CHECK("vib0", VibVal(&v, 0), 0);
+	v = 16;
+	CHECK("vib16", VibVal(&v, 0), 255);
+	CHECK("vib16.nomod", v, 16);
+	v = 70;
+	CHECK("vib70", VibVal(&v, 0), 0);
+	CHECK("vib70.reset", v, 0);
+	v = 8;
+	CHECK("vib1", VibVal(&v, 1), -192);
+	v = 0;
+	CHECK("vib1.z", VibVal(&v, 1), 0);
+
+	/* Player progression: row 0 of G66A must sound within 3 calls.
+	 * (The PIT ISR is parked via FMstop so direct ticks are
+	 * deterministic; FMload re-arms it for the ISR test below.) */
+	FMload("MUSIC\\G66A.S3M");
+	FMstop();
+	wr0 = fmWrites();
+	for (f = 0; f < 6; f++)
+		FMtimer();
+	wr1 = fmWrites();
+	CHECK("tick.rows", fmdata.CurOrd * 64 + fmdata.CurRow >= 1, 1);
+	CHECK("tick.writes", wr1 > wr0 + 30, 1);
+
+	/* ISR test: music playing across real timer ticks. Row 0 must
+	 * sound and rows must advance via the interrupt handler. */
+	FMload("MUSIC\\G66A.S3M");
+	wr0 = fmWrites();
+	DQBwait(140);
+	wr1 = fmWrites();
+	CHECK("isr.rows", fmdata.CurOrd * 64 + fmdata.CurRow >= 1, 1);
+	CHECK("isr.writes", wr1 > wr0 + 30, 1);
+	FMstop();
+	FMend();
+
+	fprintf(logf, "fm.done\n");
 	fflush(logf);
 }
 
@@ -408,8 +512,8 @@ int engtest_run(void)
 		logf = stdout;
 
 	fprintf(logf, "lala engine self-test\n");
-	printf("lala engine self-test\n");
 
+	test_render();
 	test_tables();
 	test_loaders();
 	test_enems_hotspots();
@@ -417,7 +521,7 @@ int engtest_run(void)
 	test_detect();
 	test_frames();
 	test_init_move();
-	test_render();
+	test_fm();
 
 	fprintf(logf, fails ? "ENGTEST: FAIL (%d)\n" : "ENGTEST: PASS\n", fails);
 	printf(fails ? "ENGTEST: FAIL (%d)\n" : "ENGTEST: PASS\n", fails);

@@ -107,18 +107,40 @@
   PASS**. Normal binary reaches the title demo loop (timeout-kill =
   still running).
 
-## 5. Port `FMENGINE.BAS` (only genuinely hard part)
+## 5. Port `FMENGINE.BAS` — DONE
 
-- `OUT/INP(oplbase)` → `outp/inp` (`<conio.h>`); `MPUwrite` stays
-  disabled as in the original source.
-- `PLAY ON / ON PLAY(1) GOSUB timercallback / PLAY "mlmbt255p64"` →
-  a PIT-channel-0 ISR installed at `FMinit` rate, calling the ported
-  `FMtimer()`; `PLAY STOP/OFF` → mask/unhook. (`monospace`'s `fmp.c`
-  is the reference pattern for a PIT-driven player.)
-- S3M parsing (`OPEN FOR BINARY`, `SEEK`, `CVI/ASC/INPUT$`) →
-  `fopen/fread` on `MUSIC/*.S3M`; `LOG/EXP/SIN/CINT` → `<math.h>`.
-- Verify: title music `G66A.S3M`, win music `MC12.S3M`, silence on
-  exit (`BeSilent`).
+- `src/fmengine.{h,c}`: full Bisqwit player port (~700 lines C):
+  types/structs 1:1, all 16 BI functions. Verified `lala.exe` init
+  flow + title demo run with live music (G66A/DESORUIN).
+- Deliberate, documented deviations (all behavior-preserving):
+  - QB `PLAY`/`ON PLAY` timer replaced by PIT channel-0 ISR at 25Hz
+    (`FMisr` in fmengine.c, monospace pattern: IVT hook, EOI, PIT
+    restore on `FMend`); `FOR looper = 0 TO 1` kept, so the effective
+    rate is the S3M-correct 50 frames/sec. `PLAY STOP/OFF/ON` map to
+    `FMstop()` (freeze) / `playing` flag.
+  - Patterns preloaded to RAM at `FMload` (exact bytes); the original
+    streamed them from disk inside the timer callback only to save QB
+    memory — file I/O inside a hardware ISR is unsafe.
+  - Integer-only math: period table + vibrato sine table precomputed
+    (worst case ±1 OPL period unit on extreme highs vs QB doubles —
+    inaudible); `LOG`/`EXP`/`SIN` paths feed only the disabled MPU
+    branch and were dropped (MIDI state machine kept); `MPUvol`
+    stubbed; C `/` truncates where QB `\` rounds (1-step vibrato
+    edge, inaudible).
+  - `DQBwait` is VGA-retrace-based (not tick), so freezing the BIOS
+    tick (no INT 8 chaining, monospace precedent) is safe.
+- Reentrancy rule (learned the hard way): never call `FMtimer`
+  directly while `playing` — park the ISR with `FMstop()` first
+  (stale interleavings corrupted rows/ticks nondeterministically).
+  ISR does port I/O only, never DOS/file calls.
+- Verified: `bin\musplay.exe` (minimal player: init/load/ISR-play/
+  silence/exit) plays G66A/MC12/DESORUIN headless — rows advance at
+  exactly 8 rows/sec (speed 6 @ 50fps) with continuous OPL writes,
+  clean exits. `src/engtest.c` covers headers, goldens
+  (`note2period`, `VibVal` incl. BYREF reset), row-0 sounding, and
+  ISR-driven progression.
+- `lala.c`/`engine.c`: real `FMinit` at startup, `FMend` at exit,
+  `FMstop()` + `BeSilent()` at the three `PLAY STOP` sites.
 
 ## 6. Integration & acceptance
 

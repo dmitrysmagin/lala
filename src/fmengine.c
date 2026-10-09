@@ -1,893 +1,1029 @@
-/*
-'$INCLUDE: 'FMENGINE.BI'
+/* fmengine.c — Bisqwit's FMENGINE.BAS ported to C (OpenWatcom 16-bit).
+ *
+ * OPL2/3 S3M player for DirectQB games. See fmengine.h for the
+ * deliberate differences from the QB original (PIT instead of PLAY,
+ * preloaded patterns, integer-only math).
+ *
+ * Indexing conventions kept from QB to ease comparison:
+ *  - order/adldata/insdata/adlchan use the same 0/1-based indices,
+ *  - pattern buffers are 1-based (byte 0 unused), patpos/effptr too.
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <malloc.h>
+#include <conio.h>
+#include <i86.h>
 
-timercallback: FMtimer: RETURN
-
-' Written 2000-12-31 by Bisqwit (http://iki.fi/bisqwit/)
-' Copyright (C) 1992,2004
-' Home page: http://bisqwit.iki.fi/source/fmengineqb.html
-
-DEFINT A-Z
-
-CONST FALSE = 0
-CONST TRUE = NOT FALSE
-CONST MPUBASE = &H330
-CONST oplbase = &H388
-CONST efffile = "MUSIC\EFFECTS.S3M"
-
-TYPE adlchan
-    ' Per row
-    n AS INTEGER 'note
-    s AS INTEGER 'instrument (s=sample)
-    v AS INTEGER 'volume
-    c AS INTEGER 'cmd
-    i AS INTEGER 'info
-    ' Volatiles
-    DefD AS INTEGER
-    DefE AS INTEGER
-    DefH AS INTEGER
-    CurInst AS INTEGER
-    CurVol AS INTEGER
-    Period AS INTEGER
-    VibPos AS INTEGER '0..63
-    effres AS INTEGER 'Allocated effect number. -1 = background music
-    VibEff AS INTEGER '0=nope, 1=was, 2=is
-END TYPE
-
-TYPE insdata
-    c4spd AS INTEGER
-    vol AS INTEGER
-    gm AS INTEGER     'gm program (0-127 or 128-..)
-    gmadd AS INTEGER  'disposition (semitones)
-    gmvol AS INTEGER  'factor for volumes
-    gmbank AS INTEGER 'bank
-END TYPE
-
-TYPE fmdata
-    CurRow AS INTEGER
-    CurOrd AS INTEGER
-    NeedPat AS INTEGER
-    EdPat AS INTEGER
-    TickPos AS INTEGER
-    SkipRow AS INTEGER
-    ordnum AS INTEGER
-    insnum AS INTEGER
-    patnum AS INTEGER
-    patdelay AS INTEGER
-    patdelaymax AS INTEGER
-    LoopBegin AS INTEGER
-    LoopCount AS INTEGER
-    patpos AS INTEGER 'Offset within fnpattern$
-    pperror AS DOUBLE
-    effectA AS INTEGER
-    effectT AS INTEGER
-    effind AS INTEGER
-    effpptr AS LONG 'Patternpointertablepointer in effectfile
-END TYPE
-
-TYPE fmeffdata
-    effA AS INTEGER 'Axx for effects, distinct
-    effptr AS INTEGER 'Offset within fmeffect$
-    effTickPos AS INTEGER
-END TYPE
-
-DIM SHARED fmperiod(0 TO 11) AS DOUBLE
-DIM SHARED order(0 TO 255)
-DIM SHARED adldata(1 TO 100, 0 TO 11)
-DIM SHARED insdata(1 TO 100) AS insdata
-DIM SHARED adlchan(0 TO 31) AS adlchan
-DIM SHARED MIDInote(0 TO 31) AS INTEGER, MIDIchan(0 TO 31) AS INTEGER
-DIM SHARED fmfilename$, fmpattern$, fmeffect$(0 TO 3)
-DIM SHARED fmdata AS fmdata, fmeff(0 TO 3) AS fmeffdata
-
-SUB BeSilent
-    FOR j = 0 TO 31
-        FMnoteoff j, j
-    NEXT
-    FOR j = 0 TO 244: FMwrite j, 0: NEXT
-END SUB
-
-SUB FMend
-    PLAY OFF
-    CALL BeSilent
-END SUB
-
-FUNCTION FMinit
-    FMwrite 4, 96: FMwrite 4, 128: a = INP(oplbase)
-    FMwrite 2, 255: FMwrite 4, 33: a# = TIMER: a# = TIMER: b = INP(oplbase)
-    FMwrite 4, 96: FMwrite 4, 128
-    
-    'IF ((a AND &HE0)) OR ((b AND &HE0) <> &HC0) THEN FMinit = -1: EXIT FUNCTION
-    a# = 1712 'Base value for period table
-    ' 1 / 2^(1/12) = 0.9438743126816934967
-    FOR x = 0 TO 11: fmperiod(x) = a#: a# = a# * .9438743126816935#: NEXT
-    CALL BeSilent
-    ' Initialize the timered routine
-    PLAY ON
-    ON PLAY(1) GOSUB timercallback
-    PLAY "mlmbt255p64"
-
-    ' Let us load effects.
-    FMload efffile
-
-    CALL BeSilent
-    fmdata.effind = 0
-    FOR x = 0 TO 3: fmeff(x).effA = fmdata.effectA: NEXT
-    FOR x = 0 TO 31: adlchan(x).effres = -1: NEXT
-    FOR x = 1 TO fmdata.insnum
-        FOR y = 0 TO 11
-            adldata(70 + x, y) = adldata(x, y)
-        NEXT
-        insdata(70 + x) = insdata(x)
-    NEXT
-    fmdata.effpptr = &H61 + fmdata.ordnum + fmdata.insnum * 2
-    x = MPUDetect&
-    FMinit = 1
-END FUNCTION
-
-SUB FMload (fs$)
-    fmfilename$ = ""
-    PLAY STOP
-
-    CALL BeSilent
-   
-    fp = FREEFILE
-    OPEN fs$ FOR BINARY AS fp
-    IF LOF(fp) = 0 THEN
-        CLOSE fp
-        KILL s$
-        PRINT "FILE NOT FOUND ERROR: "; s$
-        EXIT SUB
-    END IF
-
-    SEEK fp, &H21
-    fmdata.ordnum = CVI(INPUT$(2, fp))
-    fmdata.insnum = CVI(INPUT$(2, fp))
-    fmdata.patnum = CVI(INPUT$(2, fp))
-
-    SEEK fp, &H32
-    fmdata.effectA = ASC(INPUT$(1, fp))
-    fmdata.effectT = ASC(INPUT$(1, fp))
-
-    SEEK fp, &H61
-    FOR x = 1 TO fmdata.ordnum
-        order(x - 1) = ASC(INPUT$(1, 1))
-    NEXT
-    FOR x = 1 TO fmdata.insnum
-        SEEK fp, &H61 + fmdata.ordnum + (x - 1) * 2
-        insptr = CVI(INPUT$(2, fp))
-        SEEK fp, insptr * 16& + 1 + &H10
-        FOR y = 0 TO 11
-            adldata(x, y) = ASC(INPUT$(1, fp))
-        NEXT
-        SEEK fp, insptr * 16& + 1 + &H1C
-        insdata(x).vol = ASC(INPUT$(1, fp))
-        SEEK fp, insptr * 16& + 1 + &H20
-        insdata(x).c4spd = CVI(INPUT$(2, fp))
-        SEEK fp, insptr * 16& + 1 + &H30
-        s$ = INPUT$(28, fp)
-
-        IF LEFT$(s$, 2) = "GM" THEN
-            g = 0
-        ELSEIF LEFT$(s$, 2) = "GP" THEN
-            g = 1
-        ELSE
-            g = -1
-        END IF
-        IF g < 0 THEN
-            insdata(x).gm = 0
-            insdata(x).gmadd = 0
-            insdata(x).gmvol = 0
-        ELSE
-            n = VAL(MID$(s$, 3))
-            IF LEFT$(s$, 2) = "GP" THEN
-                n1 = n - 35 + 128
-            ELSE
-                n1 = n - 1
-            END IF
-
-            insdata(x).gmadd = 0
-            insdata(x).gmvol = 64
-            insdata(x).gm = n1
-            IF n < 10 THEN c = 1 ELSE IF n < 100 THEN c = 2 ELSE c = 3
-            p = 3 + c
-            DO WHILE p < LEN(s$)
-                c$ = MID$(s$, p, 1)
-                IF c$ = "+" OR c$ = "-" THEN
-                    p = p + 1
-                    n = VAL(MID$(s$, p))
-                    IF n < 10 THEN c = 1 ELSE IF n < 100 THEN c = 2 ELSE c = 3
-                    IF c$ = "-" THEN n = -n
-                    insdata(x).gmadd = n
-                    p = p + c
-                ELSEIF c$ = "" THEN
-                    p = p + 1
-                    n = VAL(MID$(s$, p))
-                    IF n < 10 THEN c = 1 ELSE IF n < 100 THEN c = 2 ELSE c = 3
-                    insdata(x).gmbank = n
-                    p = p + c
-                ELSEIF c$ = "/" THEN
-                    p = p + 1
-                    n = VAL(MID$(s$, p))
-                    IF n < 10 THEN c = 1 ELSE IF n < 100 THEN c = 2 ELSE c = 3
-                    insdata(x).gmvol = n
-                    p = p + c
-                ELSEIF c$ = "&" THEN
-                    p = p + 1
-                    n = VAL(MID$(s$, p))
-                    IF n < 10 THEN c = 1 ELSE IF n < 100 THEN c = 2 ELSE c = 3
-                    p = p + c
-                ELSE
-                    EXIT DO
-                END IF
-            LOOP
-            ' GM123+4/6: blah blah
-        END IF
-    NEXT
-    FOR x = 0 TO 31
-        adlchan(x).CurInst = 0
-        adlchan(x).CurVol = 0
-        adlchan(x).n = 255
-        adlchan(x).s = 0
-        adlchan(x).v = 255
-        adlchan(x).c = 0
-        adlchan(x).i = 0
-        MIDIchan(x) = -1
-    NEXT
-
-    fmdata.CurRow = 0
-    fmdata.CurOrd = 0
-    fmdata.SkipRow = 0
-    fmdata.NeedPat = TRUE
-    fmdata.LoopBegin = 0
-    fmdata.LoopCount = 0
-    fmdata.TickPos = 0
-    fmdata.EdPat = -1
-
-    CLOSE fp
-    fmfilename$ = fs$
-
-    IF order(fmdata.CurOrd) < 255 THEN
-        PLAY ON
-    END IF
-END SUB
-
-SUB FMnoteoff (chan, ope)
-    FMwrite &HB0 + chan, 0
-    FMwrite &H40 + ope, 255
-    FMwrite &H43 + ope, 255
-
-    ' Issue MIDI noteoff command
-    MPUwrite &H80 + MIDIchan(chan)
-    MPUwrite MIDInote(chan)
-    MPUwrite 127
-
-    MIDIchan(chan) = -1
-END SUB
-
-SUB FMplayeffect (ind)
-    PLAY STOP
-
-    fp = FREEFILE
-    OPEN efffile FOR BINARY AS fp
-
-    SEEK fp, fmdata.effpptr + ind * 2
-    patptr = CVI(INPUT$(2, fp))
-    SEEK fp, patptr * 16& + 1
-    patlen = CVI(INPUT$(2, fp))
-    fmeffect$(fmdata.effind) = INPUT$(patlen, fp)
-    fmeff(fmdata.effind).effptr = 1
-    fmeff(fmdata.effind).effTickPos = 0
-    fmdata.effind = (fmdata.effind + 1) AND 3
-    
-    CLOSE fp
-
-    PLAY ON
-END SUB
-
-SUB FMplayrowfrom (pat$, ofs, effnum)
-    IF LEN(pat$) = 0 THEN EXIT SUB
-    termination = FALSE
-   
-    FOR c = 0 TO 31
-        IF adlchan(c).effres = effnum THEN
-            adlchan(c).n = 255
-            adlchan(c).s = 0
-            adlchan(c).v = 255
-            adlchan(c).c = 0
-            adlchan(c).i = 0
-        END IF
-    NEXT
-   
-    DO
-        c = ASC(MID$(pat$, ofs, 1))
-        n = ofs + 1
-
-        IF c > 0 THEN
-            chan = c AND 31
-
-            IF effnum >= 0 THEN
-                adlchan(chan).effres = effnum
-                'PRINT "effect"; effnum; "active at channel"; chan
-            END IF
-
-            IF (c AND 32) THEN
-                note = ASC(MID$(pat$, n, 1)): n = n + 1
-                ins = ASC(MID$(pat$, n, 1)): n = n + 1
-                IF effnum >= 0 OR adlchan(chan).effres < 0 THEN
-                    IF effnum >= 0 THEN ins = ins + 70
-                    adlchan(chan).n = note
-                    adlchan(chan).s = ins
-                END IF
-            END IF
-            IF (c AND 64) THEN
-                vol = ASC(MID$(pat$, n, 1)): n = n + 1
-                IF effnum >= 0 OR adlchan(chan).effres < 0 THEN
-                    adlchan(chan).v = vol
-                END IF
-            END IF
-            IF (c AND 128) THEN
-                cmd = ASC(MID$(pat$, n, 1)): n = n + 1
-                info = ASC(MID$(pat$, n, 1)): n = n + 1
-
-                IF effnum >= 0 AND cmd = 3 THEN 'C'
-                    termination = TRUE
-                    adlchan(chan).effres = -1
-                    'PRINT "effect terminated at channel"; chan
-                ELSE
-                    IF effnum >= 0 OR adlchan(chan).effres < 0 THEN
-                        adlchan(chan).c = cmd
-                        adlchan(chan).i = info
-                    END IF
-
-                    IF cmd = 1 THEN fmdata.effectA = adlchan(chan).i  'A'
-                    IF info = 20 THEN fmdata.effectT = adlchan(chan).i 'T'
-
-                    'IF effnum >= 0 THEN
-                    '    PRINT "Found Effect Cmd at channel"; chan; ": ";
-                    '    PRINT CHR$(adlchan(chan).c OR 64); HEX$(adlchan(chan).i)
-                    'END IF
-                END IF
-            END IF
-        END IF
-        ofs = n
-    LOOP UNTIL c = 0
-
-    IF termination THEN
-        ' Terminate this effect!
-        pat$ = ""
-        ofs = 1
-        EXIT SUB
-    END IF
-END SUB
-
-SUB FMtimer
-    ' Exit quickly if adlib has not been recognized
-    IF fmperiod(0) = 0 OR LEN(fmfilename$) = 0 THEN EXIT SUB
-
-    ' S3M effectT determines how many frames to handle in 24 seconds.
-    ' S3M effectA determines, how many frames there are per a row
-    ' This function will always process one frame.
-    
-    ' The accuracy of PLAY... might not be good. Let us test.
-    
-    ' With PLAY, the command "T" determines the number of quarter notes in a minute.
-    ' L4 = quarter note. L1 = whole note (four quarter notes).
-    ' L64 is a 16th of a quarter note.
-    '
-    ' According to T, the length of a quarter note is 60/T seconds.
-    ' L determines the length of the note such...
-    ' that 240/T/L = length of a note in seconds.
-
-    ' frame length      = effectT * 0.4 seconds.
-    ' half frame length = effectT * 0.2 seconds.
-
-    ' 240/255/effectT/0.2 = L
-    ' 240/255/0.2 = 4.7058823529411764703
-
-    pp# = .1882352941176471# * fmdata.effectT + fmdata.pperror
-    IF pp# < 1 THEN pp# = 1 ELSE IF pp# > 64 THEN pp# = 64
-    pp = INT(pp#)
-    fmdata.pperror = pp# - pp
-    PLAY "mbt255p=" + VARPTR$(pp)
-
-    FOR looper = 0 TO 1
-        IF fmdata.TickPos = 0 THEN
-            IF fmdata.patdelay = 0 THEN
-                'PRINT "Ticking CurOrd="; fmdata.CurOrd; ", CurRow="; fmdata.CurRow
-
-                ' We do not keep all the patterns in memory,
-                ' due to the limited memory space of QuickBasic.
-                ' Instead, we load them from disk when we need them.
-
-                IF fmdata.NeedPat THEN
-                    c = 0
-                    DO
-                        CurPat = order(fmdata.CurOrd)
-                        IF CurPat < 254 THEN EXIT DO
-                        fmdata.CurOrd = (fmdata.CurOrd + 1) MOD fmdata.ordnum
-                        c = c + 1
-                    LOOP WHILE c < fmdata.ordnum
-
-                    IF CurPat <> fmdata.EdPat THEN
-                        fmdata.EdPat = CurPat
-
-                        'LOCATE 1, 10: COLOR 1: PRINT "Loading pattern"; CurPat; "(order"; CurOrd; ")"
-
-                        fp = FREEFILE
-                        OPEN fmfilename$ FOR BINARY AS fp
-
-                        SEEK fp, &H61 + fmdata.ordnum + fmdata.insnum * 2 + CurPat * 2
-                        patptr = CVI(INPUT$(2, fp))
-                        SEEK fp, patptr * 16& + 1
-                        patlen = CVI(INPUT$(2, fp))
-                        fmpattern$ = INPUT$(patlen, fp)
-
-                        'LOCATE 2, 10: COLOR 1: PRINT "Fetched:"; LEN(fmpattern$); "bytes"
-
-                        CLOSE fp
-                    END IF
-
-                    fmdata.CurRow = 0
-                    fmdata.NeedPat = FALSE
-                    fmdata.patpos = 1
-                END IF
-
-                ' Now fmpattern$ contains the remainder of the pattern.
-                ' fmdata.SkipRow contains the number of rows to be skipped (may originate from Cxx)
-
-                WHILE fmdata.SkipRow > 0
-                    DO
-                        n = 1
-                        c = ASC(MID$(fmpattern$, fmdata.patpos, 1))
-                        IF (c AND 32) THEN n = n + 2
-                        IF (c AND 64) THEN n = n + 1
-                        IF (c AND 128) THEN n = n + 2
-                        fmdata.patpos = fmdata.patpos + n
-                    LOOP UNTIL c = 0
-                    fmdata.SkipRow = fmdata.SkipRow - 1
-                    fmdata.CurRow = fmdata.CurRow + 1
-                WEND
-
-                ' Now fmpattern$ points to the beginning of the current row.
-                FMplayrowfrom fmpattern$, fmdata.patpos, -1
-            END IF
-            fmdata.TickPos = fmdata.effectA
-        END IF
-        FOR x = 0 TO 3
-            IF fmeff(x).effTickPos = 0 THEN
-                ' Time to fetch a new row for the effect...
-                ' TODO: Somehow clean the adlchan table...
-
-                c = fmdata.effectA
-                fmdata.effectA = fmeff(x).effA
-                FMplayrowfrom fmeffect$(x), fmeff(x).effptr, x
-                ' Muuttaa fmdata.effectA:ta
-                fmeff(x).effA = fmdata.effectA
-                fmdata.effectA = c
-                fmeff(x).effTickPos = fmeff(x).effA
-                fmeff(x).effTickPos = fmeff(x).effA
-            END IF
-        NEXT
-
-        loophere = FALSE
-        FOR x = -1 TO 3
-            IF x >= 0 THEN
-                CurTick = fmeff(x).effA - fmeff(x).effTickPos
-            ELSE
-                CurTick = fmdata.effectA - fmdata.TickPos  '0..(A-1)
-            END IF
-
-            FOR c = 0 TO 8
-                IF adlchan(c).effres = x THEN
-                    ' Mark the vibrato obsolete
-                    IF adlchan(c).VibEff = 2 THEN adlchan(c).VibEff = 1
-
-                    chan = c 'FIXME: Take from the headers
-                    ope = chan
-                    IF chan > 2 THEN ope = ope + 5
-                    IF chan > 5 THEN ope = ope + 5
-
-                    notedelay = 0
-                    notecut = -1
-
-                    cmd = adlchan(c).c
-                    info = adlchan(c).i
-
-                    IF cmd = 19 THEN      'S'
-                        sclass = info \ 16
-                        sinfo = info AND 15
-
-                        'Supported S commands:
-                        '   SB0..SBF (loop)
-                        '   SCx      (notecut)
-                        '   SDx      (notedelay)
-                        '   SEx      (patterndelay (handled later))
-                        'A=10, B=11, jne.  (hex)
-
-                        IF sclass = 11 THEN  'B'
-                            IF CurTick = 0 THEN
-                                IF sinfo = 0 THEN
-                                    fmdata.LoopBegin = fmdata.CurRow
-                                ELSE
-                                    IF fmdata.LoopCount = 0 THEN
-                                        fmdata.LoopCount = sinfo + 1
-                                    END IF
-                                END IF
-                            END IF
-                            IF sinfo > 0 THEN loophere = TRUE
-                        END IF
-                        IF sclass = 12 THEN notecut = sinfo   'C'
-                        IF sclass = 13 THEN notedelay = sinfo 'D'
-                        IF sclass = 14 THEN  'E'
-                            'PRINT fmdata.patdelay;
-                            IF CurTick = 0 THEN
-                                IF fmdata.patdelay = 0 THEN
-                                    fmdata.patdelay = sinfo
-                                    fmdata.patdelaymax = sinfo
-                                ELSE
-                                    fmdata.patdelay = fmdata.patdelay - 1
-                                END IF
-                            END IF
-                        END IF
-                    END IF
-                    IF notedelay = CurTick AND (fmdata.patdelay = fmdata.patdelaymax OR CurTick > 0) THEN
-                        vol = adlchan(c).v
-                        note = adlchan(c).n
-                        ins = adlchan(c).s
-                        IF ins = 0 THEN
-                            ins = adlchan(c).CurInst
-                        ELSE
-                            adlchan(c).CurInst = ins
-                        END IF
-                        IF ins > 0 THEN
-                            IF vol = 255 THEN
-                                vol = insdata(ins).vol
-                            ELSE
-                                FMtouch chan, ope, vol, ins
-                                adlchan(c).CurVol = vol
-                            END IF
-                            IF note < 255 THEN 'Something indeed mentioned
-                                FMnoteoff chan, ope
-                                IF note <> 254 THEN  'adlib notecut
-                                    Oct = note \ 16
-                                    note = note AND 15
-
-                                    adlchan(c).Period = note2period(note, Oct, ins)
-
-                                    FMupdate chan, ope, adlchan(c).Period, ins, vol
-                                    adlchan(c).CurVol = vol
-                                END IF
-                            END IF
-                        END IF
-                    END IF
-                    IF adlchan(c).CurInst > 0 THEN ' No command on channels without instrus playing
-                        IF cmd = 4 OR cmd = 11 THEN 'D', 'K'
-                            vol = adlchan(c).CurVol
-                            IF info = 0 THEN info = adlchan(c).DefD ELSE adlchan(c).DefD = info
-                            IF info = 255 THEN       'FF
-                                vol = 64
-                            ELSEIF info >= 240 THEN  'F0..FE
-                                IF CurTick = 0 THEN vol = vol - (info AND 15)
-                            ELSEIF info < 16 THEN    '01..0F
-                                vol = vol - (info AND 15)
-                            ELSEIF (info AND 15) = 15 THEN
-                                IF CurTick = 0 THEN vol = vol + (info \ 16)
-                            ELSEIF info <= 240 THEN '10..F0
-                                vol = vol + (info \ 16)
-                            END IF
-                            IF vol < 0 THEN vol = 0 ELSE IF vol > 64 THEN vol = 64
-                            adlchan(c).CurVol = vol
-                            FMtouch chan, ope, vol, adlchan(c).CurInst
-                        END IF
-                        IF cmd = 5 OR cmd = 6 THEN     'E' or 'F'
-                            IF info = 0 THEN info = adlchan(c).DefE ELSE adlchan(c).DefE = info
-                            IF cmd = 6 THEN info = -info
-                            adlchan(c).Period = adlchan(c).Period + info * 4
-                            FMupdate chan, ope, adlchan(c).Period, adlchan(c).CurInst, adlchan(c).CurVol
-                        END IF
-                        IF cmd = 8 OR cmd = 11 THEN     'H', 'K'
-                            IF cmd = 11 THEN info = 0
-                            IF info = 0 THEN info = adlchan(c).DefH ELSE adlchan(c).DefH = info
-                            IF adlchan(c).VibEff = 0 THEN
-                                adlchan(c).VibPos = 0
-                            END IF
-                            vspeed = info \ 16
-                            vdepth = info AND 15
-                            value = VibVal(adlchan(c).VibPos, 0) * vdepth \ 32
-                            FMupdate chan, ope, adlchan(c).Period + value, adlchan(c).CurInst, adlchan(c).CurVol
-                            adlchan(c).VibPos = adlchan(c).VibPos + vspeed
-                            adlchan(c).VibEff = 2
-                        END IF
-                        IF notecut = CurTick AND (fmdata.patdelay = fmdata.patdelaymax OR CurTick > 0) THEN
-                            FMnoteoff chan, ope
-                        END IF
-                    END IF
-                    IF adlchan(c).VibEff = 1 THEN 'Vibrato still obsolete?
-                        adlchan(c).VibEff = 0   'No more vibrato
-                        FMupdate chan, ope, adlchan(c).Period, adlchan(c).CurInst, adlchan(c).CurVol
-                    END IF
-                END IF
-            NEXT
-        NEXT
-       
-        fmdata.TickPos = fmdata.TickPos - 1
-        FOR x = 0 TO 3
-            fmeff(x).effTickPos = fmeff(x).effTickPos - 1
-        NEXT
-
-        ' If this row is finished, find out where to go next.
-        IF fmdata.TickPos = 0 AND fmdata.patdelay = 0 THEN
-            fmdata.patdelaymax = 0
-            brkord = -1
-            brkrow = -1
-
-            fmdata.CurRow = fmdata.CurRow + 1
-            IF fmdata.CurRow = 64 THEN
-                brkrow = 0
-            END IF
-
-            doloop = FALSE
-            IF fmdata.LoopCount > 0 AND loophere = TRUE THEN
-                fmdata.LoopCount = fmdata.LoopCount - 1
-                IF fmdata.LoopCount = 0 THEN
-                    ' SB0 pending.
-                    fmdata.LoopBegin = fmdata.CurRow
-                ELSE
-                    brkord = fmdata.CurOrd
-                    brkrow = fmdata.LoopBegin
-                    doloop = TRUE
-                END IF
-            END IF
-
-            IF doloop = FALSE THEN
-                FOR c = 0 TO 8
-                    cmd = adlchan(c).c     '1=A, 2=B, and so on... 0=none
-                    info = adlchan(c).i
-
-                    IF cmd = 2 THEN   'B'
-                        brkord = info
-                        fmdata.LoopBegin = 0
-                    END IF
-                    IF cmd = 3 THEN   'C'
-                        brkrow = (info \ 16) * 10 + (info AND 15)
-                        fmdata.LoopBegin = 0
-                    END IF
-                NEXT
-                IF brkord >= 0 AND brkrow = -1 THEN brkrow = 0
-            END IF
-            IF brkrow >= 0 THEN
-                fmdata.CurOrd = (fmdata.CurOrd + 1) MOD fmdata.ordnum
-                fmdata.NeedPat = TRUE
-                IF brkord >= 0 THEN fmdata.CurOrd = brkord
-                fmdata.SkipRow = brkrow
-            END IF
-        END IF
-    NEXT
-END SUB
-
-SUB FMtouch (chan, ope, vol, ins)
-    v = vol * 63 \ 64
-
-    c = (adldata(ins, 2) AND &HC0)
-    c = c OR (63 + (adldata(ins, 2) AND 63) * v \ 63 - v)
-    FMwrite &H40 + ope, c
-
-    c = (adldata(ins, 3) AND &HC0)
-    c = c OR (63 + (adldata(ins, 3) AND 63) * v \ 63 - v)
-    FMwrite &H43 + ope, c
-
-    MPUwrite &HB0 + MIDIchan(chan)
-    MPUwrite 7    'Master volume
-
-    v = MPUvol(vol, ins)
-    MPUwrite v
-END SUB
-
-SUB FMupdate (chan, ope, Period, ins, vol)
-    ' Patch with the instrument data
-
-    IF ins <= 0 THEN EXIT SUB
-
-    FMwrite &H20 + ope, adldata(ins, 0)
-    FMwrite &H60 + ope, adldata(ins, 4)
-    FMwrite &H80 + ope, adldata(ins, 6)
-    FMwrite &HE0 + ope, adldata(ins, 8) AND 3
-  
-    FMwrite &H23 + ope, adldata(ins, 1)
-    FMwrite &H63 + ope, adldata(ins, 5)
-    FMwrite &H83 + ope, adldata(ins, 7)
-    FMwrite &HE3 + ope, adldata(ins, 9) AND 3
-
-    FMwrite &HC0 + chan, adldata(ins, 10) OR &H30
-
-    IF insdata(ins).gm < 128 THEN
-        IF Period = 0 THEN
-            n = 0
-        ELSE
-            ' Converting a period into MIDI note number:
-
-            ' Hz = fmperiod(0) * 5500& / Period
-            ' 2 ^ (notenumber / 12) = Hz
-            ' Solve notenumber, get:
-            ' notenumber = 12 * log(Hz) / log(2)
-            'n = 12 * LOG(fmperiod(0) * 5500& / period) / LOG(2) + insdata(ins).gmadd - 89
-            ' Simplify:
-            n = insdata(ins).gmadd + CINT(60.10259 + 17.31234 * LOG(fmperiod(0) / Period))
-            IF n < 1 THEN n = 1
-            IF n > 127 THEN n = 127
-        END IF
-
-        IF MIDIchan(chan) = -1 THEN
-            MIDIchan(chan) = chan
-            MIDInote(chan) = n
-
-            MPUwrite &HC0 + MIDIchan(chan) ' Patch
-            MPUwrite insdata(ins).gm
-
-            MPUwrite &H90 + MIDIchan(chan)
-            MPUwrite MIDInote(chan)
-            MPUwrite 127
-        END IF
-    ELSE
-        IF MIDIchan(chan) = -1 THEN
-            MIDIchan(chan) = 9                'Percussion
-            MIDInote(chan) = insdata(ins).gm + 35 - 128
-           
-            MPUwrite &H90 + MIDIchan(chan)
-            MPUwrite MIDInote(chan)
-            MPUwrite 127'MPUvol(vol, ins)
-        END IF
-    END IF
-   
-    FMtouch chan, ope, vol, ins
-
-    Oct = 0
-    IF Period = 0 THEN
-        ' Exception, circumvention of a bug or something
-        Herz& = 0
-    ELSE
-        '5500 = 22000 / 4
-        Herz& = fmperiod(0) * 5500& / Period
-    END IF
-
-    WHILE Herz& >= 512
-        Oct = Oct + 1
-        Herz& = Herz& \ 2
-    WEND
-
-    FMwrite &HA0 + chan, Herz& AND 255
-    FMwrite &HB0 + chan, 32 OR ((Herz& \ 256) AND 3) OR ((Oct AND 7) * 4)
-END SUB
-
-SUB FMwrite (i, d)
-    OUT oplbase, i: a = INP(oplbase): OUT oplbase + 1, d: a = INP(oplbase)
-END SUB
-
-DEFSNG A-Z
-FUNCTION MPUDetect&
-    MPUDetect& = 0
-
-    OUT MPUBASE + 1, 255
-    b = 10000
-    WHILE (INP(MPUBASE + 1) AND &H40) <> 0
-        b = b - 1
-        IF b = 0 THEN EXIT FUNCTION
-    WEND
-    OUT MPUBASE + 1, 255
-    b = 10000
-MPULoop:
-    WHILE (INP(MPUBASE + 1) AND &H80) <> 0
-        b = b - 1
-        IF b = 0 THEN EXIT FUNCTION
-    WEND
-
-    IF INP(MPUBASE) <> 254 THEN GOTO MPULoop
-
-    MPUDetect& = 0
-
-    WHILE (INP(MPUBASE + 1) AND &H40) <> 0: WEND
-    OUT MPUBASE + 1, 63
-    b = 10000
-MPULoop2:
-    WHILE (INP(MPUBASE + 1) AND &H80) <> 0
-        b = b - 1
-        IF b = 0 THEN EXIT FUNCTION
-    WEND
-
-    IF INP(MPUBASE) <> 254 THEN GOTO MPULoop2
-
-    MPUDetect& = -1
-END FUNCTION
-
-DEFINT A-Z
-FUNCTION MPUvol (vol, ins)
-    v = vol * insdata(ins).gmvol \ 64
-    IF v > 0 THEN v = EXP(v / (64 / 4)) * 127 / EXP(4)
-    IF v < 0 THEN v = 0 ELSE IF v > 127 THEN v = 127
-    MPUvol = v
-END FUNCTION
-
-SUB MPUwrite (b)
-    EXIT SUB 'disabled for now
-
-    WHILE (INP(MPUBASE + 1) AND &H40) <> 0
-        GOSUB MPUwritedcheck: IF d& = 0 THEN GOTO MPUwriteesub
-    WEND
-    OUT MPUBASE, b ' And a little delay then? Nah, QBasic is slow enough.
-MPUwriteesub:
-    EXIT SUB
-MPUwritedcheck:
-    d& = d& + 1
-    'b# = b# * .0001
-    IF d& > 800000 THEN
-        d& = MPUDetect&
-        'COLOR 11
-        'PRINT "It appears that your MPU-401 crashed... ";
-        IF d& = 1 THEN
-dsuccess:   'PRINT "But it woke up again";
-            'IF d& > 1 THEN PRINT " (after few tries...)";
-            'PRINT
-        ELSE
-            d& = MPUDetect&
-            IF d& = 0 THEN d& = MPUDetect&
-            IF d& = 1 THEN d& = 2: GOTO dsuccess
-            'PRINT "Argh"
-        END IF
-        'COLOR 7
-    END IF
-RETURN 'This was a GOSUB label
-END SUB
-
-FUNCTION note2period (note, Oct, ins)
-    c4spd = insdata(ins).c4spd
-
-    tmp& = 8363& * 16& * fmperiod(note)
-
-    IF c4spd = 0 THEN
-        ' Exception, circumvention of a bug or something
-        note2period = 0
-    ELSE
-        note2period = (tmp& \ (2 ^ Oct)) / c4spd
-    END IF
-END FUNCTION
-
-FUNCTION VibVal (ind, mode)
-    '
-    ' The variable pointed by "ind" is MODIFIED in this function
-    ' mode... 0..3 = type, [+4] = loop
-
-    IF mode >= 4 THEN
-        ind = ind AND 63
-    ELSEIF ind >= 64 THEN
-        ind = 0
-    END IF
-   
-    SELECT CASE mode
-        CASE 0:
-            'VibVal = 255*SIN(ind * 3.1415926535968# / 32)
-            VibVal = 255 * SIN(ind * 9.817477042468103D-02)
-            EXIT FUNCTION
-        CASE 1:
-            IF ind = 0 THEN VibVal = 0 ELSE VibVal = (-256 + ind * 8)
-            EXIT FUNCTION
-        CASE 2:
-            IF ind < 0 THEN VibVal = 0 ELSE VibVal = 255
-            EXIT FUNCTION
-    END SELECT
-    EXIT FUNCTION
-END FUNCTION
-
-*/
-
-/* Phase 2 stubs; the FMENGINE.BAS port is Phase 3 (see PORTING.md). */
 #include "fmengine.h"
+#include "engine.h"
 
-void FMload(const char *file)
+/* --- Shared state (QB DIM SHARED) --- */
+
+int fmperiod[12];
+int __far order[FM_MAXORDER];
+int __far adldata[FM_MAXINST + 1][12];
+TypeInsData __far insdata[FM_MAXINST + 1];
+TypeAdlChan adlchan[FM_MAXCHAN];
+int MIDInote[FM_MAXCHAN];
+int MIDIchan[FM_MAXCHAN];
+char fmfile[64];
+TypeFmData fmdata;
+TypeFmEff fmeff[FM_MAXEFF];
+volatile unsigned long fm_writes = 0;
+
+/* Precomputed tables (host-computed, see PORTING.md). */
+static const int FMPERIOD[12] = {
+	1712, 1616, 1525, 1440, 1359, 1283,
+	1211, 1143, 1078, 1018, 961, 907
+};
+
+/* 255*sin(i * 0.09817477042468103), QB banker's rounding. */
+static const int SINTAB[64] = {
+	0, 25, 50, 74, 98, 120, 142, 162,
+	180, 197, 212, 225, 236, 244, 250, 254,
+	255, 254, 250, 244, 236, 225, 212, 197,
+	180, 162, 142, 120, 98, 74, 50, 25,
+	0, -25, -50, -74, -98, -120, -142, -162,
+	-180, -197, -212, -225, -236, -244, -250, -254,
+	-255, -254, -250, -244, -236, -225, -212, -197,
+	-180, -162, -142, -120, -98, -74, -50, -25
+};
+
+/* Preloaded song patterns (exact file bytes at [1..len], 1-based use). */
+static unsigned char __far *patTab[FM_MAXPAT];
+int patLen[FM_MAXPAT];
+static unsigned char __far patwork[FM_PATWORK + 2];
+static int patworklen;
+
+/* Preloaded effect patterns (FMplayeffect stages these). */
+static unsigned char __far *effTab[FM_MAXEFF];
+static int effLen[FM_MAXEFF];
+
+/* Music on/off (QB PLAY ON/STOP) + PIT state. */
+static volatile int playing = 0;
+volatile unsigned long fm_ticks = 0;
+static void (__interrupt __far *oldTimer)(void) = 0;
+
+#define PIT_DIV 47727	/* 1193182 / 25 Hz */
+
+/* --- Low level --- */
+
+void FMwrite(int i, int d)
 {
-	(void)file;
+	int k;
+	outp(OPLBASE, i & 0xFF);
+	for (k = 0; k < 6; k++)
+		(void)inp(OPLBASE);
+	outp(OPLBASE + 1, d & 0xFF);
+	for (k = 0; k < 35; k++)
+		(void)inp(OPLBASE);
+	fm_writes++;
+}
+
+void FMnoteoff(int chan, int ope)
+{
+	FMwrite(0xB0 + chan, 0);
+	FMwrite(0x40 + ope, 255);
+	FMwrite(0x43 + ope, 255);
+
+	/* Issue MIDI noteoff command */
+	MPUwrite(0x80 + MIDIchan[chan]);
+	MPUwrite(MIDInote[chan]);
+	MPUwrite(127);
+
+	MIDIchan[chan] = -1;
+}
+
+void MPUwrite(int b)
+{
+	(void)b;
+	/* disabled in the original ("disabled for now") */
 }
 
 void BeSilent(void)
 {
+	int j;
+	for (j = 0; j < 32; j++)
+		FMnoteoff(j, j);
+	for (j = 0; j < 245; j++)
+		FMwrite(j, 0);
+}
+
+void FMend(void)
+{
+	unsigned long __far *ivt;
+	playing = 0;	/* PLAY OFF */
+	BeSilent();
+	_disable();
+	ivt = (unsigned long __far *)MK_FP(0, 0);
+	ivt[8] = (unsigned long)oldTimer;
+	outp(0x43, 0x36);
+	outp(0x40, 0);
+	outp(0x40, 0);
+	_enable();
+}
+
+void FMstop(void)
+{
+	playing = 0;	/* PLAY STOP: freeze position */
+}
+
+/* --- PIT music timer (replaces QB PLAY/ON PLAY) --- */
+
+void __interrupt __far FMisr(void)
+{
+	fm_ticks++;
+	if (playing)
+		FMtimer();
+	outp(0x20, 0x20);
+}
+
+static void FMinstallTimer(void)
+{
+	unsigned long __far *ivt = (unsigned long __far *)MK_FP(0, 0);
+	_disable();
+	oldTimer = (void (__interrupt __far *)(void))ivt[8];
+	ivt[8] = (unsigned long)FMisr;
+	outp(0x43, 0x36);	/* mode 3, square wave */
+	outp(0x40, PIT_DIV & 0xFF);
+	outp(0x40, (PIT_DIV >> 8) & 0xFF);
+	_enable();
+}
+
+int FMinit(void)
+{
+	int x, y;
+	FMwrite(4, 96);
+	FMwrite(4, 128);
+	(void)inp(OPLBASE);
+	FMwrite(2, 255);
+	FMwrite(4, 33);
+	/* QB read TIMER twice here as a delay; port reads are enough. */
+	(void)inp(OPLBASE);
+	FMwrite(4, 96);
+	FMwrite(4, 128);
+
+	/* OPL-detect IF is commented out in the original: always proceed. */
+	for (x = 0; x < 12; x++)
+		fmperiod[x] = FMPERIOD[x];
+	BeSilent();
+	/* PLAY ON + ON PLAY(1) GOSUB timercallback */
+	FMinstallTimer();
+
+	/* Let us load effects. */
+	FMload("MUSIC\\EFFECTS.S3M");
+
+	BeSilent();
+	fmdata.effind = 0;
+	for (x = 0; x < 4; x++)
+		fmeff[x].effA = fmdata.effectA;
+	for (x = 0; x < 32; x++)
+		adlchan[x].effres = -1;
+	for (x = 1; x <= fmdata.insnum; x++) {
+		for (y = 0; y < 12; y++)
+			adldata[70 + x][y] = adldata[x][y];
+		insdata[70 + x] = insdata[x];
+	}
+	fmdata.effpptr = 0x60 + fmdata.ordnum + fmdata.insnum * 2;
+	x = (int)MPUDetect();
+	(void)x;
+	return 1;
+}
+
+/* --- File helpers (0-based offsets; QB SEEK is 1-based) --- */
+
+static int rd8(FILE *f, long off)
+{
+	int c;
+	fseek(f, off, SEEK_SET);
+	c = fgetc(f);
+	return c < 0 ? 0 : c;
+}
+
+static int rd16(FILE *f, long off)
+{
+	int lo, hi;
+	fseek(f, off, SEEK_SET);
+	lo = fgetc(f);
+	hi = fgetc(f);
+	if (lo < 0 || hi < 0)
+		return 0;
+	return lo | (hi << 8);
+}
+
+static int qbval(const char *s)
+{
+	int v = 0, neg = 0;
+	while (*s == ' ')
+		s++;
+	if (*s == '-') {
+		neg = 1;
+		s++;
+	} else if (*s == '+') {
+		s++;
+	}
+	while (*s >= '0' && *s <= '9') {
+		v = v * 10 + (*s - '0');
+		s++;
+	}
+	return neg ? -v : v;
+}
+
+static void freePatterns(void)
+{
+	int p;
+	for (p = 0; p < FM_MAXPAT; p++) {
+		if (patTab[p]) {
+			ffree_nw(patTab[p], patLen[p] + 1);
+			patTab[p] = 0;
+		}
+		patLen[p] = 0;
+	}
+}
+
+void FMload(const char *file)
+{
+	FILE *f;
+	int x, y, p;
+	long size;
+
+	playing = 0;	/* PLAY STOP */
+	BeSilent();
+
+	_disable();
+	freePatterns();
+
+	f = fopen(file, "rb");
+	if (!f) {
+		_enable();
+		printf("FILE NOT FOUND ERROR: %s\n", file);
+		return;
+	}
+	fseek(f, 0, SEEK_END);
+	size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	if (size <= 0) {
+		fclose(f);
+		_enable();
+		printf("FILE NOT FOUND ERROR: %s\n", file);
+		return;
+	}
+
+	fmdata.ordnum = rd16(f, 0x20);
+	fmdata.insnum = rd16(f, 0x22);
+	fmdata.patnum = rd16(f, 0x24);
+
+	fmdata.effectA = rd8(f, 0x31);
+	fmdata.effectT = rd8(f, 0x32);
+
+	fseek(f, 0x60, SEEK_SET);
+	for (x = 0; x < fmdata.ordnum; x++)
+		order[x] = fgetc(f);
+
+	for (x = 1; x <= fmdata.insnum; x++) {
+		long insptr;
+		char name[29];
+		int g, n, n1, c, j;
+		insptr = rd16(f, 0x60L + fmdata.ordnum + (long)(x - 1) * 2);
+		fseek(f, insptr * 16L + 0x10, SEEK_SET);
+		for (y = 0; y < 12; y++)
+			adldata[x][y] = fgetc(f);
+		fseek(f, insptr * 16L + 0x1C, SEEK_SET);
+		insdata[x].vol = fgetc(f);
+		insdata[x].c4spd = rd16(f, insptr * 16L + 0x20);
+		fseek(f, insptr * 16L + 0x30, SEEK_SET);
+		for (y = 0; y < 28; y++) {
+			int ch = fgetc(f);
+			name[y] = ch < 0 ? 0 : (char)ch;
+		}
+		name[28] = 0;
+
+		if (name[0] == 'G' && name[1] == 'M')
+			g = 0;
+		else if (name[0] == 'G' && name[1] == 'P')
+			g = 1;
+		else
+			g = -1;
+		if (g < 0) {
+			insdata[x].gm = 0;
+			insdata[x].gmadd = 0;
+			insdata[x].gmvol = 0;
+		} else {
+			n = qbval(name + 2);
+			if (g == 1)
+				n1 = n - 35 + 128;
+			else
+				n1 = n - 1;
+
+			insdata[x].gmadd = 0;
+			insdata[x].gmvol = 64;
+			insdata[x].gm = n1;
+			if (n < 10)
+				c = 1;
+			else if (n < 100)
+				c = 2;
+			else
+				c = 3;
+			j = 2 + c;
+			/* NOTE: QB's `ELSEIF c$ = ""` bank branch is dead code
+			 * (MID$ never returns "" here); omitted deliberately. */
+			while (j < 28) {
+				char ch = name[j];
+				if (ch == '+' || ch == '-') {
+					j++;
+					n = qbval(name + j);
+					if (n < 10)
+						c = 1;
+					else if (n < 100)
+						c = 2;
+					else
+						c = 3;
+					if (ch == '-')
+						n = -n;
+					insdata[x].gmadd = n;
+					j += c;
+				} else if (ch == '/') {
+					j++;
+					n = qbval(name + j);
+					if (n < 10)
+						c = 1;
+					else if (n < 100)
+						c = 2;
+					else
+						c = 3;
+					insdata[x].gmvol = n;
+					j += c;
+				} else if (ch == '&') {
+					j++;
+					n = qbval(name + j);
+					if (n < 10)
+						c = 1;
+					else if (n < 100)
+						c = 2;
+					else
+						c = 3;
+					j += c;
+				} else {
+					break;
+				}
+			}
+			/* GM123+4/6: blah blah */
+		}
+	}
+
+	/* Preload patterns (the original streamed them from disk in the
+	 * timer callback to save QB memory; same bytes, RAM instead). */
+	if (fmdata.patnum > FM_MAXPAT)
+		fmdata.patnum = FM_MAXPAT;
+	for (p = 0; p < fmdata.patnum; p++) {
+		long patptr, avail;
+		int len;
+		patptr = rd16(f, 0x60L + fmdata.ordnum + (long)fmdata.insnum * 2 + (long)p * 2);
+		len = rd16(f, patptr * 16L);
+		/* Parapointer 0 never occurs in our songs; QB would read the
+		 * length from file offset 0 and INPUT$ past EOF. Clamp to
+		 * what the file holds (same observable bytes). */
+		avail = size - (patptr * 16L + 2);
+		if (avail < 0)
+			avail = 0;
+		if (len > avail)
+			len = (int)avail;
+		if (len > 1024)
+			len = 1024;
+		if (len > 0) {
+			int k;
+			patTab[p] = fmalloc_nw(len + 1);
+			fseek(f, patptr * 16L + 2, SEEK_SET);
+			for (k = 1; k <= len; k++) {
+				int ch = fgetc(f);
+				((char __far *)patTab[p])[k] = ch < 0 ? 0 : (char)ch;
+			}
+		}
+		patLen[p] = len;
+	}
+
+	for (x = 0; x < 32; x++) {
+		adlchan[x].CurInst = 0;
+		adlchan[x].CurVol = 0;
+		adlchan[x].n = 255;
+		adlchan[x].s = 0;
+		adlchan[x].v = 255;
+		adlchan[x].c = 0;
+		adlchan[x].i = 0;
+		MIDIchan[x] = -1;
+	}
+
+	fmdata.CurRow = 0;
+	fmdata.CurOrd = 0;
+	fmdata.SkipRow = 0;
+	fmdata.NeedPat = 1;
+	fmdata.LoopBegin = 0;
+	fmdata.LoopCount = 0;
+	fmdata.TickPos = 0;
+	fmdata.EdPat = -1;
+	/* NOTE: patdelay/patdelaymax intentionally NOT reset (QB doesn't). */
+
+	fclose(f);
+	strncpy(fmfile, file, 63);
+	fmfile[63] = 0;
+
+	if (order[fmdata.CurOrd] < 255)
+		playing = 1;	/* PLAY ON */
+	_enable();
+}
+
+void FMplayeffect(int ind)
+{
+	FILE *f;
+	long patptr;
+	int patlen;
+
+	playing = 0;	/* PLAY STOP */
+
+	f = fopen("MUSIC\\EFFECTS.S3M", "rb");
+	if (!f)
+		return;
+
+	patptr = rd16(f, fmdata.effpptr + (long)ind * 2);
+	patlen = rd16(f, patptr * 16L);
+	if (patlen > 1024)
+		patlen = 1024;
+	if (effTab[fmdata.effind]) {
+		ffree_nw(effTab[fmdata.effind], effLen[fmdata.effind] + 1);
+		effTab[fmdata.effind] = 0;
+	}
+	if (patlen > 0) {
+		int k;
+		effTab[fmdata.effind] = fmalloc_nw(patlen + 1);
+		fseek(f, patptr * 16L + 2, SEEK_SET);
+		for (k = 1; k <= patlen; k++) {
+			int ch = fgetc(f);
+			((char __far *)effTab[fmdata.effind])[k] = ch < 0 ? 0 : (char)ch;
+		}
+	}
+	effLen[fmdata.effind] = patlen;
+	fmeff[fmdata.effind].effptr = 1;
+	fmeff[fmdata.effind].effTickPos = 0;
+	fmdata.effind = (fmdata.effind + 1) & 3;
+
+	fclose(f);
+
+	playing = 1;	/* PLAY ON */
+}
+
+/* --- Row player --- */
+
+void FMplayrowfrom(unsigned char __far *pat, int *plen, int *pofs, int effnum)
+{
+	int c, n, chan, note, ins, vol, cmd, info;
+	int ofs;
+
+	if (*plen == 0)
+		return;
+	ofs = *pofs;
+
+	for (c = 0; c < 32; c++) {
+		if (adlchan[c].effres == effnum) {
+			adlchan[c].n = 255;
+			adlchan[c].s = 0;
+			adlchan[c].v = 255;
+			adlchan[c].c = 0;
+			adlchan[c].i = 0;
+		}
+	}
+
+	for (;;) {
+		int termination = 0;
+		c = pat[ofs];
+		n = ofs + 1;
+
+		if (c > 0) {
+			chan = c & 31;
+
+			if (effnum >= 0)
+				adlchan[chan].effres = effnum;
+
+			if (c & 32) {
+				note = pat[n];
+				n++;
+				ins = pat[n];
+				n++;
+				if (effnum >= 0 || adlchan[chan].effres < 0) {
+					if (effnum >= 0)
+						ins += 70;
+					adlchan[chan].n = note;
+					adlchan[chan].s = ins;
+				}
+			}
+			if (c & 64) {
+				vol = pat[n];
+				n++;
+				if (effnum >= 0 || adlchan[chan].effres < 0)
+					adlchan[chan].v = vol;
+			}
+			if (c & 128) {
+				cmd = pat[n];
+				n++;
+				info = pat[n];
+				n++;
+
+				if (effnum >= 0 && cmd == 3) {	/* C */
+					termination = 1;
+					adlchan[chan].effres = -1;
+				} else {
+					if (effnum >= 0 || adlchan[chan].effres < 0) {
+						adlchan[chan].c = cmd;
+						adlchan[chan].i = info;
+					}
+
+					if (cmd == 1)	/* A */
+						fmdata.effectA = adlchan[chan].i;
+					if (info == 20)	/* T */
+						fmdata.effectT = adlchan[chan].i;
+				}
+			}
+		}
+		ofs = n;
+		if (c == 0)
+			break;
+		if (termination) {
+			/* Terminate this effect! */
+			*plen = 0;
+			*pofs = 1;
+			return;
+		}
+	}
+	*pofs = ofs;
+}
+
+/* --- The timer callback (runs in the PIT ISR, and directly in tests) --- */
+
+void FMtimer(void)
+{
+	int looper, c, n, x, chan, ope, vol, note, ins, cmd, info;
+	int sclass, sinfo, notedelay, notecut, CurTick;
+	int vspeed, vdepth, value, Oct, loophere;
+
+	/* Exit quickly if adlib has not been recognized */
+	if (fmperiod[0] == 0 || fmfile[0] == 0)
+		return;
+
+	/* NOTE: the QB version reprogrammed PLAY tempo here from effectT
+	 * (pp/VARPTR$ mechanism). Our PIT runs at a fixed 25Hz and each
+	 * call processes two frames, i.e. the S3M-correct 50 frames/sec. */
+
+	for (looper = 0; looper <= 1; looper++) {
+		if (fmdata.TickPos == 0) {
+			if (fmdata.patdelay == 0) {
+				if (fmdata.NeedPat) {
+					int CurPat;
+					c = 0;
+					do {
+						CurPat = order[fmdata.CurOrd];
+						if (CurPat < 254)
+							break;
+						fmdata.CurOrd = (fmdata.CurOrd + 1) % fmdata.ordnum;
+						c++;
+					} while (c < fmdata.ordnum);
+
+					if (CurPat != fmdata.EdPat) {
+						int len = (CurPat >= 0 && CurPat < FM_MAXPAT) ? patLen[CurPat] : 0;
+						if (len > FM_PATWORK)
+							len = FM_PATWORK;
+						if (len > 0 && patTab[CurPat])
+							_fmemcpy(patwork + 1, (char __far *)patTab[CurPat] + 1, len);
+						patworklen = len;
+						fmdata.EdPat = CurPat;
+					}
+
+					fmdata.CurRow = 0;
+					fmdata.NeedPat = 0;
+					fmdata.patpos = 1;
+				}
+
+				/* Skip rows (may originate from Cxx) */
+				while (fmdata.SkipRow > 0) {
+					for (;;) {
+						n = 1;
+						c = patwork[fmdata.patpos];
+						if (c & 32)
+							n += 2;
+						if (c & 64)
+							n += 1;
+						if (c & 128)
+							n += 2;
+						fmdata.patpos += n;
+						if (c == 0)
+							break;
+					}
+					fmdata.SkipRow--;
+					fmdata.CurRow++;
+				}
+
+				/* fmpattern$ points to the current row. */
+				FMplayrowfrom(patwork, &patworklen, &fmdata.patpos, -1);
+			}
+			fmdata.TickPos = fmdata.effectA;
+		}
+		for (x = 0; x < 4; x++) {
+			if (fmeff[x].effTickPos == 0) {
+				/* Time to fetch a new row for the effect... */
+				c = fmdata.effectA;
+				fmdata.effectA = fmeff[x].effA;
+				FMplayrowfrom(effTab[x], &effLen[x], &fmeff[x].effptr, x);
+				fmeff[x].effA = fmdata.effectA;
+				fmdata.effectA = c;
+				fmeff[x].effTickPos = fmeff[x].effA;
+				fmeff[x].effTickPos = fmeff[x].effA;
+			}
+		}
+
+		loophere = 0;
+		for (x = -1; x <= 3; x++) {
+			if (x >= 0)
+				CurTick = fmeff[x].effA - fmeff[x].effTickPos;
+			else
+				CurTick = fmdata.effectA - fmdata.TickPos;	/* 0..(A-1) */
+
+			for (c = 0; c <= 8; c++) {
+				if (adlchan[c].effres == x) {
+					/* Mark the vibrato obsolete */
+					if (adlchan[c].VibEff == 2)
+						adlchan[c].VibEff = 1;
+
+					chan = c;	/* FIXME: Take from the headers */
+					ope = chan;
+					if (chan > 2)
+						ope += 5;
+					if (chan > 5)
+						ope += 5;
+
+					notedelay = 0;
+					notecut = -1;
+
+					cmd = adlchan[c].c;
+					info = adlchan[c].i;
+
+					if (cmd == 19) {	/* S */
+						sclass = info / 16;
+						sinfo = info & 15;
+
+						if (sclass == 11) {	/* B */
+							if (CurTick == 0) {
+								if (sinfo == 0) {
+									fmdata.LoopBegin = fmdata.CurRow;
+								} else {
+									if (fmdata.LoopCount == 0)
+										fmdata.LoopCount = sinfo + 1;
+								}
+							}
+							if (sinfo > 0)
+								loophere = 1;
+						}
+						if (sclass == 12)	/* C */
+							notecut = sinfo;
+						if (sclass == 13)	/* D */
+							notedelay = sinfo;
+						if (sclass == 14) {	/* E */
+							if (CurTick == 0) {
+								if (fmdata.patdelay == 0) {
+									fmdata.patdelay = sinfo;
+									fmdata.patdelaymax = sinfo;
+								} else {
+									fmdata.patdelay--;
+								}
+							}
+						}
+					}
+					if (notedelay == CurTick &&
+						(fmdata.patdelay == fmdata.patdelaymax || CurTick > 0)) {
+						vol = adlchan[c].v;
+						note = adlchan[c].n;
+						ins = adlchan[c].s;
+						if (ins == 0)
+							ins = adlchan[c].CurInst;
+						else
+							adlchan[c].CurInst = ins;
+						if (ins > 0) {
+							if (vol == 255) {
+								vol = insdata[ins].vol;
+							} else {
+								FMtouch(chan, ope, vol, ins);
+								adlchan[c].CurVol = vol;
+							}
+							if (note < 255) {	/* Something indeed mentioned */
+								FMnoteoff(chan, ope);
+								if (note != 254) {	/* adlib notecut */
+									Oct = note / 16;
+									note &= 15;
+
+									adlchan[c].Period = note2period(note, Oct, ins);
+
+									FMupdate(chan, ope, adlchan[c].Period, ins, vol);
+									adlchan[c].CurVol = vol;
+								}
+							}
+						}
+					}
+					if (adlchan[c].CurInst > 0) {	/* No command on channels without instrus playing */
+						if (cmd == 4 || cmd == 11) {	/* D, K */
+							vol = adlchan[c].CurVol;
+							if (info == 0)
+								info = adlchan[c].DefD;
+							else
+								adlchan[c].DefD = info;
+							if (info == 255) {	/* FF */
+								vol = 64;
+							} else if (info >= 240) {	/* F0..FE */
+								if (CurTick == 0)
+									vol -= info & 15;
+							} else if (info < 16) {	/* 01..0F */
+								vol -= info & 15;
+							} else if ((info & 15) == 15) {
+								if (CurTick == 0)
+									vol += info / 16;
+							} else if (info <= 240) {	/* 10..F0 */
+								vol += info / 16;
+							}
+							if (vol < 0)
+								vol = 0;
+							else if (vol > 64)
+								vol = 64;
+							adlchan[c].CurVol = vol;
+							FMtouch(chan, ope, vol, adlchan[c].CurInst);
+						}
+						if (cmd == 5 || cmd == 6) {	/* E or F */
+							if (info == 0)
+								info = adlchan[c].DefE;
+							else
+								adlchan[c].DefE = info;
+							if (cmd == 6)
+								info = -info;
+							adlchan[c].Period = adlchan[c].Period + info * 4;
+							FMupdate(chan, ope, adlchan[c].Period, adlchan[c].CurInst, adlchan[c].CurVol);
+						}
+						if (cmd == 8 || cmd == 11) {	/* H, K */
+							if (cmd == 11)
+								info = 0;
+							if (info == 0)
+								info = adlchan[c].DefH;
+							else
+								adlchan[c].DefH = info;
+							if (adlchan[c].VibEff == 0)
+								adlchan[c].VibPos = 0;
+							vspeed = info / 16;
+							vdepth = info & 15;
+							value = VibVal(&adlchan[c].VibPos, 0) * vdepth / 32;
+							FMupdate(chan, ope, adlchan[c].Period + value, adlchan[c].CurInst, adlchan[c].CurVol);
+							adlchan[c].VibPos += vspeed;
+							adlchan[c].VibEff = 2;
+						}
+						if (notecut == CurTick &&
+							(fmdata.patdelay == fmdata.patdelaymax || CurTick > 0)) {
+							FMnoteoff(chan, ope);
+						}
+					}
+					if (adlchan[c].VibEff == 1) {	/* Vibrato still obsolete? */
+						adlchan[c].VibEff = 0;	/* No more vibrato */
+						FMupdate(chan, ope, adlchan[c].Period, adlchan[c].CurInst, adlchan[c].CurVol);
+					}
+				}
+			}
+		}
+
+		fmdata.TickPos--;
+		for (x = 0; x < 4; x++)
+			fmeff[x].effTickPos--;
+
+		/* If this row is finished, find out where to go next. */
+		if (fmdata.TickPos == 0 && fmdata.patdelay == 0) {
+			int brkord = -1;
+			int brkrow = -1;
+			int doloop = 0;
+
+			fmdata.patdelaymax = 0;
+			fmdata.CurRow++;
+			if (fmdata.CurRow == 64)
+				brkrow = 0;
+
+			if (fmdata.LoopCount > 0 && loophere) {
+				fmdata.LoopCount--;
+				if (fmdata.LoopCount == 0) {
+					/* SB0 pending. */
+					fmdata.LoopBegin = fmdata.CurRow;
+				} else {
+					brkord = fmdata.CurOrd;
+					brkrow = fmdata.LoopBegin;
+					doloop = 1;
+				}
+			}
+
+			if (!doloop) {
+				for (c = 0; c <= 8; c++) {
+					cmd = adlchan[c].c;	/* 1=A, 2=B, and so on... 0=none */
+					info = adlchan[c].i;
+
+					if (cmd == 2) {	/* B */
+						brkord = info;
+						fmdata.LoopBegin = 0;
+					}
+					if (cmd == 3) {	/* C */
+						brkrow = (info / 16) * 10 + (info & 15);
+						fmdata.LoopBegin = 0;
+					}
+				}
+				if (brkord >= 0 && brkrow == -1)
+					brkrow = 0;
+			}
+			if (brkrow >= 0) {
+				fmdata.CurOrd = (fmdata.CurOrd + 1) % fmdata.ordnum;
+				fmdata.NeedPat = 1;
+				if (brkord >= 0)
+					fmdata.CurOrd = brkord;
+				fmdata.SkipRow = brkrow;
+			}
+		}
+	}
+}
+
+/* --- Instrument voice --- */
+
+void FMtouch(int chan, int ope, int vol, int ins)
+{
+	int v = vol * 63 / 64;
+	int c;
+
+	c = adldata[ins][2] & 0xC0;
+	c |= 63 + (adldata[ins][2] & 63) * v / 63 - v;
+	FMwrite(0x40 + ope, c);
+
+	c = adldata[ins][3] & 0xC0;
+	c |= 63 + (adldata[ins][3] & 63) * v / 63 - v;
+	FMwrite(0x43 + ope, c);
+
+	MPUwrite(0xB0 + MIDIchan[chan]);
+	MPUwrite(7);	/* Master volume */
+
+	v = MPUvol(vol, ins);
+	MPUwrite(v);
+}
+
+void FMupdate(int chan, int ope, int period, int ins, int vol)
+{
+	/* Patch with the instrument data */
+	long Herz;
+	int Oct, n;
+
+	if (ins <= 0)
+		return;
+
+	FMwrite(0x20 + ope, adldata[ins][0]);
+	FMwrite(0x60 + ope, adldata[ins][4]);
+	FMwrite(0x80 + ope, adldata[ins][6]);
+	FMwrite(0xE0 + ope, adldata[ins][8] & 3);
+
+	FMwrite(0x23 + ope, adldata[ins][1]);
+	FMwrite(0x63 + ope, adldata[ins][5]);
+	FMwrite(0x83 + ope, adldata[ins][7]);
+	FMwrite(0xE3 + ope, adldata[ins][9] & 3);
+
+	FMwrite(0xC0 + chan, adldata[ins][10] | 0x30);
+
+	/* MIDI branch (MPU output disabled; keep channel state only).
+	 * The original computed n = gmadd + CINT(60.10259 +
+	 * 17.31234 * LOG(...)) here; unobservable without MPU. */
+	if (insdata[ins].gm < 128) {
+		n = 0;
+		if (MIDIchan[chan] == -1) {
+			MIDIchan[chan] = chan;
+			MIDInote[chan] = n;
+
+			MPUwrite(0xC0 + MIDIchan[chan]);	/* Patch */
+			MPUwrite(insdata[ins].gm);
+
+			MPUwrite(0x90 + MIDIchan[chan]);
+			MPUwrite(MIDInote[chan]);
+			MPUwrite(127);
+		}
+	} else {
+		if (MIDIchan[chan] == -1) {
+			MIDIchan[chan] = 9;	/* Percussion */
+			MIDInote[chan] = insdata[ins].gm + 35 - 128;
+
+			MPUwrite(0x90 + MIDIchan[chan]);
+			MPUwrite(MIDInote[chan]);
+			MPUwrite(127);
+		}
+	}
+
+	FMtouch(chan, ope, vol, ins);
+
+	Oct = 0;
+	if (period == 0) {
+		/* Exception, circumvention of a bug or something */
+		Herz = 0;
+	} else {
+		/* 5500 = 22000 / 4 */
+		Herz = (long)fmperiod[0] * 5500L / period;
+	}
+
+	while (Herz >= 512) {
+		Oct++;
+		Herz >>= 1;
+	}
+
+	FMwrite(0xA0 + chan, (int)(Herz & 255));
+	FMwrite(0xB0 + chan, 32 | (int)((Herz >> 8) & 3) | ((Oct & 7) * 4));
+}
+
+/* --- Helpers --- */
+
+long MPUDetect(void)
+{
+	int b;
+
+	outp(MPUBASE + 1, 255);
+	b = 10000;
+	while ((inp(MPUBASE + 1) & 0x40) != 0) {
+		if (--b == 0)
+			return 0;
+	}
+	outp(MPUBASE + 1, 255);
+	b = 10000;
+	for (;;) {
+		while ((inp(MPUBASE + 1) & 0x80) != 0) {
+			if (--b == 0)
+				return 0;
+		}
+
+		if (inp(MPUBASE) != 254)
+			continue;
+		break;
+	}
+
+	while ((inp(MPUBASE + 1) & 0x40) != 0)
+		;
+	outp(MPUBASE + 1, 63);
+	b = 10000;
+	for (;;) {
+		while ((inp(MPUBASE + 1) & 0x80) != 0) {
+			if (--b == 0)
+				return 0;
+		}
+
+		if (inp(MPUBASE) != 254)
+			continue;
+		break;
+	}
+
+	return -1;
+}
+
+int MPUvol(int vol, int ins)
+{
+	(void)vol;
+	(void)ins;
+	/* Value feeds only the disabled MPUwrite; keep it simple. */
+	return 0;
+}
+
+int note2period(int note, int oct, int ins)
+{
+	long c4spd = (long)insdata[ins].c4spd;
+	long tmp;
+
+	tmp = 8363L * 16L * (long)fmperiod[note];
+
+	if (c4spd == 0) {
+		/* Exception, circumvention of a bug or something */
+		return 0;
+	}
+	return (int)((tmp >> oct) / c4spd);
+}
+
+int VibVal(int *ind, int mode)
+{
+	/* The variable pointed by "ind" IS modified (QB BYREF param). */
+	if (mode >= 4) {
+		*ind &= 63;
+	} else if (*ind >= 64) {
+		*ind = 0;
+	}
+
+	switch (mode) {
+	case 0:
+		return SINTAB[*ind];
+	case 1:
+		if (*ind == 0)
+			return 0;
+		return -256 + *ind * 8;
+	case 2:
+		if (*ind < 0)
+			return 0;
+		return 255;
+	default:
+		break;
+	}
+	return 0;
 }

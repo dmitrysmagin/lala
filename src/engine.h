@@ -175,6 +175,17 @@ int engineDoGame(int flag);
 /* QB INPUT# numeric reader (commas/newlines/spaces as separators). */
 int qbReadInt(FILE *f);
 
+/* Wrap-safe far allocation: DQB routines address buffers with a FIXED
+ * segment, and C far-pointer arithmetic doesn't carry, so [ptr, ptr+size)
+ * must not cross offset 0xFFFF (it would wrap within the segment and
+ * scribble). Allocates 2x+4, uses a crossing-free half, stashes the base
+ * for ffree_nw. Far heap is plentiful; game-lifetime buffers (tileset,
+ * spriteset, patterns) are never freed, like QB. Sizes below 4 are
+ * rounded up (both functions agree). */
+void __far *fmalloc_nw(unsigned size);
+void __far *fcalloc_nw(unsigned n, unsigned size);
+void ffree_nw(void __far *p, unsigned size);
+
 /* engtest.c (headless self-test, runs as `lala.exe test`) */
 int engtest_run(void);
 

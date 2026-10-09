@@ -1,5 +1,5 @@
 # Makefile for Lala Prologue — Open Watcom 16-bit DOS
-# Target: 16-bit real-mode DOS, large memory model
+# Target: 16-bit real-mode DOS, medium memory model (like QB 4.5)
 #
 # Usage (from cmd.exe):
 #   set WATCOM=C:\Openwatcom
@@ -26,11 +26,17 @@ WASMFLAGS = -fpi87
 WLIB    = wlib
 CFLAGS  = -0 -mm -s -zq -w4
 
-# Output — 8.3 filename required for DOSBox mount
+# Output — 8.3 filenames required for DOSBox mount
 TARGET  = bin\lala.exe
+TESTBIN = bin\test.exe
+MUSPLAY = bin\musplay.exe
 
-# Source files (order matters for wcl — first .c becomes the target name)
-SRCS    = src\lala.c src\engine.c src\engtest.c src\fmengine.c src\directqb.c
+# Source files (order matters for wcl — first .c becomes the target name).
+# The game ships lean (no test code — the image has a ~64K ceiling,
+# see PORTING.md); the harness builds as a separate test binary.
+GAMESRCS = src\lala.c src\engine.c src\fmengine.c src\directqb.c
+TESTSRCS = src\testmain.c src\engtest.c src\engine.c src\fmengine.c src\directqb.c
+MUSPLAYSRCS = src\musplay.c src\fmengine.c src\engine.c src\directqb.c
 
 # DirectQB library, recompiled from dqb\*.ASM with WASM (see PORTING.md).
 # Excluded: dqb\CALLS.OBJ (BC-compiled BASIC, no ASM source) and the
@@ -39,10 +45,16 @@ DQBLIB  = dqb\dqb.lib
 DQBASM  = dqb\MAIN.ASM dqb\DRAW.ASM dqb\SPRITE.ASM dqb\IMAGE.ASM dqb\FONT.ASM dqb\BLENDING.ASM dqb\PALETTE.ASM dqb\BIT.ASM dqb\DISK.ASM dqb\DATAFILE.ASM dqb\SOUND.ASM dqb\KEYBOARD.ASM dqb\MOUSE.ASM dqb\JOYSTICK.ASM dqb\THREED.ASM
 
 # --- Targets ---
-all: $(TARGET)
+all: $(TARGET) $(TESTBIN) $(MUSPLAY)
 
-$(TARGET): $(SRCS) $(DQBLIB)
-	$(WCL) $(CFLAGS) -fe=$(TARGET) $(SRCS) $(DQBLIB)
+$(TARGET): $(GAMESRCS) $(DQBLIB)
+	$(WCL) $(CFLAGS) -fe=$(TARGET) $(GAMESRCS) $(DQBLIB)
+
+$(TESTBIN): $(TESTSRCS) $(DQBLIB)
+	$(WCL) $(CFLAGS) -fe=$(TESTBIN) $(TESTSRCS) $(DQBLIB)
+
+$(MUSPLAY): $(MUSPLAYSRCS) $(DQBLIB)
+	$(WCL) $(CFLAGS) -fe=$(MUSPLAY) $(MUSPLAYSRCS) $(DQBLIB)
 
 # Rebuild the DirectQB import library from sources.
 dqblib: $(DQBLIB)
@@ -74,3 +86,5 @@ clean:
 	del src\*.err
 	del dqb\obj\*.obj
 	del $(TARGET)
+	del $(TESTBIN)
+	del $(MUSPLAY)

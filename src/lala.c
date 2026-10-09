@@ -19,15 +19,13 @@ static const char *endingText[8] = {
 static void showEnding(void);
 static int showTitle(void);
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	int i;
 
-	if (argc > 1 && strcmp(argv[1], "test") == 0)
-		return engtest_run();
-
 	printf("INITALIZING OPL3 LIBRARY\n");
-	/* FMinit (Phase 3) */
+	i = FMinit();
+	(void)i;
 
 	/* Init DirectQB for 4 layers */
 	printf("INITIALIZING DIRECTQB\n");
@@ -133,8 +131,7 @@ int main(int argc, char *argv[])
 	DQBremoveKeyboard();
 	DQBclose();
 
-	/* FMend (Phase 3) */
-	BeSilent();
+	FMend();
 
 	return 0;
 }
@@ -185,7 +182,8 @@ static void showEnding(void)
 	while (!xDQBinkey())
 		;
 
-	/* PLAY STOP (Phase 3) */
+	/* PLAY STOP */
+	FMstop();
 	BeSilent();
 	DQBclearLayer(VIDEO);
 }
@@ -206,7 +204,8 @@ static int showTitle(void)
 	FMload("MUSIC\\G66A.S3M");
 	xDQBsetPal(pal);
 	r = engineDoGame(0);
-	/* PLAY STOP (Phase 3) */
+	/* PLAY STOP */
+	FMstop();
 	BeSilent();
 
 	DQBclearLayer(VIDEO);
