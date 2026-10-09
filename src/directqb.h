@@ -25,10 +25,10 @@
 #define _DIRECTQB_H_
 
 /* Library constants (from DIRECTQB.BI): */
-#define AUTO	(-1)
-#define ONCE	 (0)
-#define LOOPED	 (1)
-#define VIDEO	 (0)
+#define AUTO    (-1)
+#define ONCE     (0)
+#define LOOPED     (1)
+#define VIDEO     (0)
 
 /* Direct lib bindings (dqb/dqb.lib). All return 0 on success where
  * the ASM reports errors (same as the QB originals). */
@@ -41,7 +41,7 @@ extern void __far __pascal DQBinitVGA(void);
 extern void __far __pascal DQBinitText(void);
 extern void __far __pascal DQBfadeTo(int red, int green, int blue);
 extern void __far __pascal DQBpalOff(void);
-extern void __far __pascal xDQBsetPal(char __far *pal);	/* 768 bytes */
+extern void __far __pascal xDQBsetPal(char __far *pal);    /* 768 bytes */
 extern void __far __pascal DQBbox(int layer, int x1, int y1, int x2, int y2, int col);
 extern void __far __pascal DQBfilterBox(int layer, int x1, int y1, int x2, int y2, int col, int bmap);
 extern int __far __pascal DQBcreateBMap(int bmap, int firstCol, int lastCol);
@@ -56,6 +56,10 @@ extern void __far __pascal DQBinstallKeyboard(void);
 extern void __far __pascal DQBremoveKeyboard(void);
 extern int __far __pascal DQBkey(int scanCode);	/* -1 pressed, 0 released */
 extern int __far __pascal xDQBinkey(void);	/* ASCII char, 0 = none */
+/* Scancode table owned by the keyboard ISR (128 entries, 1 = pressed).
+ * Tests poke it directly to script input; the game never touches it. */
+#pragma aux KeyStatus "KEYSTATUS"
+extern unsigned char KeyStatus[128];
 extern int __far __pascal DQBinstallSB(int volActive, int channels, int freq, int baseAddr, int irq, int dma);
 extern int __far __pascal xDQBloadSound(int slot, char __far *file);
 extern void __far __pascal DQBplaySound(int soundNum, int voice, int freq, int loopFlag);

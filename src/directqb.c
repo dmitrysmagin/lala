@@ -13,16 +13,16 @@ static int stagedW, stagedH;
 
 int DQBloadImage(int layer, int x, int y, const char __far *file, void __far *pal, int *imgW, int *imgH)
 {
-	int rc = xDQBloadImage(layer, x, y, (char __far *)file,
-		(char __far *)pal, &stagedW, &stagedH);
-	if (imgW)
-		*imgW = stagedW;
-	if (imgH)
-		*imgH = stagedH;
-	return rc;
+    int rc = xDQBloadImage(layer, x, y, (char __far *)file,
+        (char __far *)pal, &stagedW, &stagedH);
+    if (imgW)
+        *imgW = stagedW;
+    if (imgH)
+        *imgH = stagedH;
+    return rc;
 }
 
 void DQBprint(int layer, const char __far *text, int x, int y, int col)
 {
-	xDQBprint(layer, (char __far *)text, x, y, col, 0);
+    xDQBprint(layer, (char __far *)text, x, y, col, 0);
 }

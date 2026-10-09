@@ -6,5 +6,5 @@ int engtest_run(void);
 
 int main(void)
 {
-	return engtest_run();
+    return engtest_run();
 }

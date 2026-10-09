@@ -155,6 +155,11 @@
 **Suggested execution order:** Phase 0 lib → Phase 1 bindings →
 Phase 2 engine (this doc) → Phase 3 FMENGINE → playtest pass.
 
+## Code style (project rule)
+
+- `.c`/`.h` files: 4 spaces everywhere, TABS FORBIDDEN (makefiles
+  keep their mandatory tabs).
+
 ## Appendix: WASM/wlink quirks found (do not regress)
 
 - WASM defaults to FP-emulation codegen: FPU ops get `FWAIT` prefixes

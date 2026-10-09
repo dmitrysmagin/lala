@@ -26,61 +26,61 @@
 #define FM_MAXCHAN 32
 #define FM_MAXEFF 4
 #define FM_MAXPAT 100
-#define FM_PATWORK 2048	/* largest pattern in our S3Ms is 778 bytes */
+#define FM_PATWORK 2048    /* largest pattern in our S3Ms is 778 bytes */
 
 typedef struct {
-	/* Per row */
-	int n;	/* note */
-	int s;	/* instrument (s=sample) */
-	int v;	/* volume */
-	int c;	/* cmd */
-	int i;	/* info */
-	/* Volatiles */
-	int DefD;
-	int DefE;
-	int DefH;
-	int CurInst;
-	int CurVol;
-	int Period;
-	int VibPos;	/* 0..63 */
-	int effres;	/* allocated effect number. -1 = background music */
-	int VibEff;	/* 0=nope, 1=was, 2=is */
+    /* Per row */
+    int n;    /* note */
+    int s;    /* instrument (s=sample) */
+    int v;    /* volume */
+    int c;    /* cmd */
+    int i;    /* info */
+    /* Volatiles */
+    int DefD;
+    int DefE;
+    int DefH;
+    int CurInst;
+    int CurVol;
+    int Period;
+    int VibPos;    /* 0..63 */
+    int effres;    /* allocated effect number. -1 = background music */
+    int VibEff;    /* 0=nope, 1=was, 2=is */
 } TypeAdlChan;
 
 typedef struct {
-	int c4spd;
-	int vol;
-	int gm;		/* gm program (0-127 or 128-..) */
-	int gmadd;	/* disposition (semitones) */
-	int gmvol;	/* factor for volumes */
-	int gmbank;	/* bank */
+    int c4spd;
+    int vol;
+    int gm;        /* gm program (0-127 or 128-..) */
+    int gmadd;    /* disposition (semitones) */
+    int gmvol;    /* factor for volumes */
+    int gmbank;    /* bank */
 } TypeInsData;
 
 typedef struct {
-	int CurRow;
-	int CurOrd;
-	int NeedPat;
-	int EdPat;
-	int TickPos;
-	int SkipRow;
-	int ordnum;
-	int insnum;
-	int patnum;
-	int patdelay;
-	int patdelaymax;
-	int LoopBegin;
-	int LoopCount;
-	int patpos;	/* 1-based offset within patwork, like QB MID$ */
-	int effectA;
-	int effectT;
-	int effind;
-	long effpptr;	/* 0-based pattern-pointer-table offset in effect file */
+    int CurRow;
+    int CurOrd;
+    int NeedPat;
+    int EdPat;
+    int TickPos;
+    int SkipRow;
+    int ordnum;
+    int insnum;
+    int patnum;
+    int patdelay;
+    int patdelaymax;
+    int LoopBegin;
+    int LoopCount;
+    int patpos;    /* 1-based offset within patwork, like QB MID$ */
+    int effectA;
+    int effectT;
+    int effind;
+    long effpptr;    /* 0-based pattern-pointer-table offset in effect file */
 } TypeFmData;
 
 typedef struct {
-	int effA;	/* Axx for effects, distinct */
-	int effptr;	/* 1-based offset within effect buffer */
-	int effTickPos;
+    int effA;    /* Axx for effects, distinct */
+    int effptr;    /* 1-based offset within effect buffer */
+    int effTickPos;
 } TypeFmEff;
 
 /* Shared state (QB DIM SHARED). Big tables live in far segments to
@@ -96,15 +96,15 @@ extern int MIDIchan[FM_MAXCHAN];
 extern char fmfile[64];
 extern TypeFmData fmdata;
 extern TypeFmEff fmeff[FM_MAXEFF];
-extern int patLen[FM_MAXPAT];	/* preloaded pattern lengths (test use) */
+extern int patLen[FM_MAXPAT];    /* preloaded pattern lengths (test use) */
 extern volatile unsigned long fm_writes; /* OPL port writes, for tests */
-extern volatile unsigned long fm_ticks;	/* PIT ISR invocations */
+extern volatile unsigned long fm_ticks;    /* PIT ISR invocations */
 
 /* Music control (QB PLAY equivalents). File paths are DGROUP
  * literals/statics (same rule as DQB wrappers). */
 int FMinit(void);
 void FMend(void);
-void FMstop(void);	/* PLAY STOP: freeze position */
+void FMstop(void);    /* PLAY STOP: freeze position */
 void FMload(const char *file);
 void BeSilent(void);
 

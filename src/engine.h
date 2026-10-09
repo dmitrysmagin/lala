@@ -24,116 +24,116 @@
 #define ENEM_SLOTS 4
 
 typedef struct {
-	int x;
-	int y;
+    int x;
+    int y;
 } Coordinates;
 
 typedef struct {
-	int x;		/* X coordinate */
-	int y;		/* Y coordinate */
-	int vx;		/* speed on X */
-	int vy;		/* speed on Y */
-	int frame;	/* animation frame */
-	int facing;	/* left or right? */
-	int subFrame;	/* subframe counter */
-	int sprId;	/* ID of current sprite in spriteset */
-	int gotten;	/* on a platform */
-	int jumping;	/* jumping */
-	int ctJump;	/* for how long? */
-	int lives;	/* player lives */
-	int objects;	/* player objects */
-	int score;	/* player score */
-	int keys;	/* player keys */
-	int attempt;	/* player wants to exit screen */
-	int state;
-	int ctState;
-	int gameOver;
+    int x;        /* X coordinate */
+    int y;        /* Y coordinate */
+    int vx;        /* speed on X */
+    int vy;        /* speed on Y */
+    int frame;    /* animation frame */
+    int facing;    /* left or right? */
+    int subFrame;    /* subframe counter */
+    int sprId;    /* ID of current sprite in spriteset */
+    int gotten;    /* on a platform */
+    int jumping;    /* jumping */
+    int ctJump;    /* for how long? */
+    int lives;    /* player lives */
+    int objects;    /* player objects */
+    int score;    /* player score */
+    int keys;    /* player keys */
+    int attempt;    /* player wants to exit screen */
+    int state;
+    int ctState;
+    int gameOver;
 } TypePlayer;
 
 typedef struct {
-	char mapFile[13];
-	char tilesetFile[13];
-	char backdropFile[13];
-	char tilePropertiesFile[13];
-	char spritePropertiesFile[13];
-	char spritesetFile[13];
-	char spriteMappingFile[13];
-	char enemsFile[13];
-	char hotSpotsFile[13];
-	int mapW;
-	int mapH;
-	int screenW;
-	int screenH;
-	Coordinates screenPos;
-	int numTiles;
-	int numSprites;
-	char pal[768];
-	int gMaxVy;
-	int g;
-	int jumpVyInitial;
-	int jumpVyMax;
-	int jumpIncr;
-	int walkVxMax;
-	int walkAx;
-	int walkFr;
-	int iniPant;
-	int iniTX;
-	int iniTY;
-	int nEnems;
-	int totalEnems;
-	int enemPlat;
-	int boltTile;
-	int lifeTile;
-	int objectTile;
-	int keyTile;
-	int initialLives;
-	int maxObjs;
-	int refill;
-	int hotSpotX;
-	int hotSpotY;
-	char bgM[13];
-	int bgL1;
-	int bgL2;
+    char mapFile[13];
+    char tilesetFile[13];
+    char backdropFile[13];
+    char tilePropertiesFile[13];
+    char spritePropertiesFile[13];
+    char spritesetFile[13];
+    char spriteMappingFile[13];
+    char enemsFile[13];
+    char hotSpotsFile[13];
+    int mapW;
+    int mapH;
+    int screenW;
+    int screenH;
+    Coordinates screenPos;
+    int numTiles;
+    int numSprites;
+    char pal[768];
+    int gMaxVy;
+    int g;
+    int jumpVyInitial;
+    int jumpVyMax;
+    int jumpIncr;
+    int walkVxMax;
+    int walkAx;
+    int walkFr;
+    int iniPant;
+    int iniTX;
+    int iniTY;
+    int nEnems;
+    int totalEnems;
+    int enemPlat;
+    int boltTile;
+    int lifeTile;
+    int objectTile;
+    int keyTile;
+    int initialLives;
+    int maxObjs;
+    int refill;
+    int hotSpotX;
+    int hotSpotY;
+    char bgM[13];
+    int bgL1;
+    int bgL2;
 } TypePrefs;
 
 typedef struct {
-	int location;
-	int flags;
+    int location;
+    int flags;
 } TypeTileProperties;
 
 typedef struct {
-	int layer1;
-	int layer2;
-	int behaviour;
-	int anim;
-	int realMapIndex;
+    int layer1;
+    int layer2;
+    int behaviour;
+    int anim;
+    int realMapIndex;
 } TypeTileLayers;
 
 typedef struct {
-	int offX, offY;
+    int offX, offY;
 } TypeSpriteProperties;
 
 typedef struct {
-	int x;
-	int y;
-	int t;
-	int s;
+    int x;
+    int y;
+    int t;
+    int s;
 } TypeHotSpots;
 
 typedef struct {
-	int x;
-	int y;
-	int x1;
-	int y1;
-	int x2;
-	int y2;
-	int mx;
-	int my;
-	int t;
-	int facing;
-	int frame;
-	int subFrame;
-	int sprId;
+    int x;
+    int y;
+    int x1;
+    int y1;
+    int x2;
+    int y2;
+    int mx;
+    int my;
+    int t;
+    int facing;
+    int frame;
+    int subFrame;
+    int sprId;
 } TypeEnems;
 
 /* Shared game state (QB DIM SHARED / globals). */
