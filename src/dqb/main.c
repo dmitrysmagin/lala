@@ -119,6 +119,24 @@ void DQBAPI DQBclose(void)
     if (!LibActive)
         return;
 
+    if (TimerActive) {
+        regs.x.ax = 0;
+        sregs.es = 0;
+        /* Restore INT 8 vector from OldInt8. */
+        _disable();
+        {
+            void __interrupt __far *old8;
+            old8 = (void __interrupt __far *)MK_FP(
+                (unsigned short)(OldInt8 >> 16), (unsigned short)OldInt8);
+            _dos_setvect(8, old8);
+        }
+        _enable();
+        outp(0x43, 0x34);
+        outp(0x40, 0);
+        outp(0x40, 0);
+        TimerActive = 0;
+    }
+
     if (KeyActive) {
         extern void DQBAPI DQBremoveKeyboard(void);
         DQBremoveKeyboard();
@@ -159,6 +177,16 @@ void DQBAPI DQBclose(void)
             sregs.es = BMapSeg[i];
             dqb_int386x(0x21, &regs, &regs, &sregs);
         }
+    }
+
+    if (FLIactive) {
+        extern void DQBAPI DQBcloseFLI(void);
+        DQBcloseFLI();
+    }
+
+    if (PackActive) {
+        extern void DQBAPI DQBcloseDataFile(void);
+        DQBcloseDataFile();
     }
 
     if (VGAon) {

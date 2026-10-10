@@ -1,5 +1,6 @@
 /* core_io.c — EMS map, layer segment, INT 24h, single-byte DOS read (ASM ABI). */
 #include "dqb_int.h"
+#include <conio.h>
 #include <dos.h>
 #include <i86.h>
 
@@ -128,4 +129,70 @@ void __far HookInt24(void)
 void __far UnhookInt24(void)
 {
     dqb_unhook_int24();
+}
+
+#pragma aux WriteBuffer "_WriteBuffer" modify exact [ax cx dx]
+int __far WriteBuffer(void)
+{
+    __asm {
+        push ds
+        mov dx, offset Buffer
+        mov ax, seg Buffer
+        mov ds, ax
+        mov cx, 1
+        mov ah, 40h
+        int 21h
+        pop ds
+    }
+    return 0;
+}
+
+#pragma aux ResetJoy "_ResetJoy" modify exact [ax bx cx dx]
+void __far ResetJoy(void)
+{
+    unsigned char al;
+    unsigned char bl;
+    unsigned cx;
+
+    _disable();
+    al = 0;
+    outp(0x201, al);
+    al = inp(0x201);
+    JoyButA[0] = (al & JoyMask[2]) ? 0 : 1;
+    JoyButB[0] = (al & JoyMask[3]) ? 0 : 1;
+    bl = (unsigned char)(JoyMask[0] + JoyMask[1]);
+    outp(0x201, al);
+    for (cx = 0; cx < 65535u; cx++) {
+        al = inp(0x201);
+        if (al & JoyMask[0])
+            JoyCX[0] = cx;
+        if (al & JoyMask[1])
+            JoyCY[0] = cx;
+        if (!(al & bl))
+            break;
+    }
+    if (cx != 65535u)
+        JoyDetected[0] = 1;
+    else
+        JoyDetected[0] = 0;
+    outp(0x201, al);
+    al = inp(0x201);
+    JoyButA[1] = (al & JoyMask[6]) ? 0 : 1;
+    JoyButB[1] = (al & JoyMask[7]) ? 0 : 1;
+    bl = (unsigned char)(JoyMask[4] + JoyMask[5]);
+    outp(0x201, al);
+    for (cx = 0; cx < 65535u; cx++) {
+        al = inp(0x201);
+        if (al & JoyMask[4])
+            JoyCX[1] = cx;
+        if (al & JoyMask[5])
+            JoyCY[1] = cx;
+        if (!(al & bl))
+            break;
+    }
+    if (cx != 65535u)
+        JoyDetected[1] = 1;
+    else
+        JoyDetected[1] = 0;
+    _enable();
 }

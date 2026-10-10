@@ -1,6 +1,6 @@
 # DirectQB C port
 
-Watcom C reimplementation of the game-used DirectQB modules under `src/dqb/`, replacing `dqb/dqb.lib` in the default build.
+Watcom C reimplementation of DirectQB 1.61 under `src/dqb/`, replacing `dqb/dqb.lib` in the default build.
 
 ## Layout
 
@@ -9,16 +9,23 @@ src/dqb/
   dqb.h, dqb_int.h     Public API and shared state/helpers
   globals.c            Library globals (was MAIN.ASM .DATA + sound shared)
   main.c               P0: init, close, layers, VGA/text, wait
-  core_io.c            MapEMS, GetLayerSeg, ReadBuffer, HookInt24
+  main_extra.c         P7: ver/mapLayer/error/sort/angle/frameRate/baseLayer/peek/poke/FPU
+  core_io.c            MapEMS, GetLayerSeg, Read/WriteBuffer, ResetJoy, HookInt24
   doscall.c            DOS/EMS via `intr()` (REGPACK)
-  bit.c                P1: shift/bit helpers
-  palette.c            P1: setPal, fadeTo, palOff
-  draw.c               P2: put, get, box, setTransPut
-  blending.c           P2: filterBox, createBMap, loadBMap
-  font.c               P3: loadFont, xDQBprint, DQBprint (style 0)
-  image.c              P3: PCX load + palette from file tail, DQBloadImage
-  keyboard.c           P4: install/remove, DQBkey, xDQBinkey, INT 9 ISR
-  sound.c              WAV load + SB IRQ mixer (C; `_asm` only for EMS INT 67h)
+  bit.c                BIT: set/reset/read/toggle/shiftLeft/shiftRight
+  palette.c            PALETTE: full 12 entry points
+  draw.c               DRAW: full 16 entry points
+  sprite.c             SPRITE: full 14 entry points
+  blending.c           BLENDING: full 9 entry points
+  font.c               FONT: full 10 entry points (styles/texture/blend/bold/italic)
+  image.c              IMAGE: BSV/BMP/PCX load, save, FLI play/open/close/step
+  keyboard.c           KEYBOARD: full 7 entry points, INT 9 ISR
+  sound.c              SOUND: full 12 entry points, SB IRQ mixer
+  disk.c               DISK: full 6 entry points
+  datafile.c           DATAFILE: full 10 entry points
+  mouse.c              MOUSE: full 12 entry points (INT 33h)
+  joystick.c           JOYSTICK: full 8 entry points (port 201h)
+  threed.c             THREED: full 8 entry points (flat/gouraud/textured/filtered)
 ```
 
 ## P5 — cutover (done)
@@ -30,11 +37,24 @@ src/dqb/
 
 ## P6 — Sound Blaster mixer (C)
 
-- **`src/dqb/sound.c`:** `xDQBloadSound` (stdio RIFF/WAVE → EMS) plus `DQBinstallSB` / `DQBplaySound` / `DQBstopVoice` / `DQBremoveSB`.
+- **`src/dqb/sound.c`:** `xDQBloadSound` (stdio RIFF/WAVE → EMS) plus `DQBinstallSB` / `DQBplaySound` / `DQBstopVoice` / `DQBremoveSB`, plus `xDQBloadRawSound`, `DQBinUse`, `DQBpauseSound`, `DQBresumeSound`, `DQBsetVoiceVol`, `DQBsetFreq`, `DQBsetVolume`.
 - Mixer, DSP, DMA, and BLASTER parse are C; `_asm` is only the ISR’s EMS save/map/restore (`INT 67h`).
 - Default build is C-only (no `SOUND_DRV.obj`, no `dqb_alias.lnk`).
 
 DOSBox: `ems=true`; set **`BLASTER`** (or pass explicit port/IRQ/DMA to `DQBinstallSB`) for SB playback.
+
+## P7 — remainder (done, this change)
+
+- **MAIN:** `DQBver`, `DQBmapLayer`, `xDQBerror`, `DQBsort`, `DQBangle` (FPU → `atan2`), `DQBsetFrameRate`/`DQBframeReady` (PIT + INT 8), `DQBsetBaseLayer`, `DQBpeek`/`DQBpoke` (INT 67h AH=57h), `DQBFPU`/`DQBINT3D` (no-op), `WriteBuffer`, `ResetJoy`; `DQBclose` now restores timer, FLI, pack.
+- **BIT:** added `DQBresetBit`, `DQBtoggleBit`; shifts emulate ASM double-`SHL AX,CL`.
+- **PALETTE:** all 12 (`setCol/getCol/findCol/findPalCol/setPal/getPal/fadeIn/fadeStepIn/fadeTo/fadeStepTo/palOff/palRotate`).
+- **DRAW:** all 16 (`copyTransLayer/copyHitLayer/pset/point/line/gline/ellipse/box/boxf/paint/scroll/scrollArea/setTransPut/setSolidPut/get/put`).
+- **SPRITE:** all 14 (`size/setClipBox/sPut/rPut/fPut/xPut/mPut/hPut/tPut/pPut/putOver/collide/collideOnLayer/setCollideMethod`); `ResetJoy` index bug fixed (`JoyCX[1]` not `[2]`).
+- **BLENDING:** all 9 + fixed `filterBox` OOR (writes `Col`) and `createBMap` layout (`fore*256+bg`); added `bPut/copyBlendLayer/setBMap/getBMap/saveBMap/removeBMap` with `LastError`.
+- **FONT:** full `xDQBprint` (solid/underline/bold/italic/blend/texture/center `x=8000h`, `CharSpacing`) + `setFontTexture/setTextSpacing/len/setBIOSfont/setFont/setTextBackCol/setTextBMap/setTextStyle`.
+- **IMAGE:** BSV + BMP branches, `xDQBsaveImage` (BSV/BMP/PCX), FLI (`playFLI/openFLI/closeFLI/playFLIstep` + COLOR/BRUN/LC/COPY/BLACK decode).
+- **KEYBOARD:** added `DQBreadKey/DQBwaitKey/DQBasc`.
+- **DISK/DATAFILE/MOUSE/JOYSTICK/THREED:** full ports; `dqb/dqb.lib` retained only via `wmake dqblib` for reference.
 
 ## Build
 
@@ -42,23 +62,22 @@ DOSBox: `ems=true`; set **`BLASTER`** (or pass explicit port/IRQ/DMA to `DQBinst
 - **Include path:** `-i=src` on `CFLAGS`.
 - **Legacy ASM library:** `wmake dqblib` still builds `dqb/dqb.lib` from `dqb/*.ASM` for reference or rollback.
 
-## Phase coverage (game scope)
+## Phase coverage (full library)
 
 | Phase | ASM sources replaced | Notes |
 |-------|----------------------|--------|
-| P0 | MAIN (core) | EMS init, layer copy/clear, VGA 320×200, text mode |
-| P1 | BIT, PALETTE (subset) | Bit ops; full-palette set/fade/off |
-| P2 | DRAW, BLENDING (subset) | Sprites, box, filter box, blender maps |
-| P3 | FONT, IMAGE (PCX) | Font file; PCX decode; palette from file tail |
-| P4 | KEYBOARD, SOUND (partial) | Keyboard in C; WAV load in C |
+| P0 | MAIN (core + extras) | EMS init, layers, VGA/text, timer, base layers, peek/poke, sort/angle |
+| P1 | BIT, PALETTE (full) | Bit ops; full palette set/get/find/fade/rotate |
+| P2 | DRAW, BLENDING, SPRITE (full) | Primitives, sprites, filter box, blender maps |
+| P3 | FONT, IMAGE (full) | Font styles; BSV/BMP/PCX + save; FLI |
+| P4 | KEYBOARD, SOUND (full) | Keyboard + SB mixer/voices/volumes |
 | P5 | — | Game cutover, header/wrapper cleanup |
 | P6 | SOUND (mixer) | C in `sound.c`; `_asm` INT 67h in the SB ISR |
-
-Not ported: SPRITE extras, DISK, DATAFILE, MOUSE, JOYSTICK, THREED, and most unused DQB entry points.
+| P7 | DISK, DATAFILE, MOUSE, JOYSTICK, THREED | Remainder; C-only default build |
 
 ## PCX palette
 
-`image.c` reads the 768-byte VGA palette from the PCX tail (`0x0C` + 768 bytes, each component `>> 2`). No engine-side reload.
+`image.c` reads the palette inline after pixels (`0x0C` + 768 bytes, each component `>> 2`), matching ASM (no `SEEK_END` fallback). BSV palette appended check (`filesize != len+7`) and BMP `B,G,R,0` quads likewise.
 
 ## Keyboard / KeyStatus
 
@@ -79,4 +98,4 @@ Not ported: SPRITE extras, DISK, DATAFILE, MOUSE, JOYSTICK, THREED, and most unu
 
 ## Constraints
 
-See `PORTING.md`: ~64K code+DGROUP ceiling; stack `-k16384` on `wcl`.
+See `PORTING.md`: ~64K code+DGROUP ceiling; stack `-k16384` on `wcl`. P7 adds ~15 new TUs — watch `bin\lala.map` CODE+DGROUP size after `wmake`.

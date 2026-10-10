@@ -30,6 +30,7 @@ static unsigned short VoiceLoop[MAX_VOICES];
 static unsigned short VoiceVol[MAX_VOICES];
 static unsigned short VoiceLoopEnd[MAX_VOICES];
 static unsigned short VoiceLoopLen[MAX_VOICES];
+static unsigned char PauseSound;
 
 static void __interrupt __far sb_mix_isr(void);
 
@@ -424,6 +425,68 @@ void DQBAPI DQBstopVoice(int voice)
     }
 }
 
+int DQBAPI DQBinUse(int voice)
+{
+    int v = voice - 1;
+
+    if (v < 0 || v >= MAX_VOICES)
+        return 0;
+    return VoiceSound[v] ? -1 : 0;
+}
+
+void DQBAPI DQBpauseSound(void)
+{
+    if (!PauseSound && SoundActive) {
+        wait_write_dsp((unsigned short)(BaseAddr + 0x0C));
+        outp(BaseAddr + 0x0C, 0xD0);
+        PauseSound = 1;
+    }
+}
+
+void DQBAPI DQBresumeSound(void)
+{
+    if (PauseSound && SoundActive) {
+        wait_write_dsp((unsigned short)(BaseAddr + 0x0C));
+        outp(BaseAddr + 0x0C, 0xD4);
+        PauseSound = 0;
+    }
+}
+
+void DQBAPI DQBsetVoiceVol(int voice, int newVol)
+{
+    int v = voice - 1;
+
+    if (v < 0 || v >= MAX_VOICES)
+        return;
+    VoiceVol[v] = (unsigned short)(newVol & 0x3F);
+}
+
+void DQBAPI DQBsetFreq(int voice, int sampleRate)
+{
+    unsigned long rate, rem;
+    int v = voice - 1;
+
+    if (v < 0 || v >= MAX_VOICES)
+        return;
+    rate = SamplingRate ? SamplingRate : 1;
+    HighCount[v] = (unsigned short)((unsigned)sampleRate / rate);
+    rem = (unsigned long)((unsigned)sampleRate % rate);
+    LowCount[v] = (unsigned short)((rem << 16) / rate);
+    Counter[v] = 0;
+}
+
+void DQBAPI DQBsetVolume(int volume)
+{
+    unsigned char v;
+
+    if (!SoundActive)
+        return;
+    v = (unsigned char)((volume & 0x0F) * 0x11);
+    wait_write_dsp((unsigned short)(BaseAddr + 0x0C));
+    outp(BaseAddr + 4, 0x22);
+    outp(BaseAddr + 5, v);
+}
+
 void DQBAPI DQBremoveSB(void)
 {
     union REGS regs;
@@ -516,4 +579,63 @@ int DQBAPI xDQBloadSound(int slot, char __far *file)
     fclose(f);
     dqb_unhook_int24();
     return (left == 0) ? 0 : 2;
+}
+
+int DQBAPI xDQBloadRawSound(int slot, char __far *file, int hiOff, int loOff, int length)
+{
+    FILE *f;
+    unsigned char chunk[512];
+    unsigned long left = (unsigned long)(unsigned short)length;
+    unsigned short page;
+    unsigned char far *dst;
+    long off = ((long)hiOff << 16) | (unsigned short)loOff;
+
+    if (slot < 1 || slot > (int)NumSounds) {
+        LastError = 19;
+        return 4;
+    }
+    dqb_hook_int24();
+    f = fopen((const char *)file, "rb");
+    if (!f) {
+        dqb_unhook_int24();
+        LastError = 4;
+        return 1;
+    }
+    if (fseek(f, off, SEEK_SET) != 0) {
+        fclose(f);
+        dqb_unhook_int24();
+        LastError = 5;
+        return 2;
+    }
+    SoundLen[slot - 1] = (unsigned short)length;
+    page = (unsigned short)((SoundPage / 4 + (unsigned short)(slot - 1)) * 4);
+    dqb_map_ems(page);
+    dst = (unsigned char __far *)MK_FP(EMSseg, 0);
+    {
+        unsigned long i;
+        for (i = 0; i < 65536UL; i++)
+            dst[i] = 0x80;
+    }
+    while (left) {
+        size_t n = (left > sizeof(chunk)) ? sizeof(chunk) : (size_t)left;
+        size_t got = fread(chunk, 1, n, f);
+        if (got == 0)
+            break;
+        _fmemcpy(dst, chunk, got);
+        dst += got;
+        left -= got;
+        if (got < n)
+            break;
+    }
+    fclose(f);
+    dqb_unhook_int24();
+    if (left == (unsigned long)(unsigned short)length) {
+        LastError = 20;
+        return 3;
+    }
+    if (left != 0) {
+        LastError = 5;
+        return 2;
+    }
+    return 0;
 }

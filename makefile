@@ -48,8 +48,8 @@ TESTSRCS = tests\testmain.c tests\engtest.c src\engine.c src\fmengine.c
 MUSPLAYSRCS = tests\musplay.c src\fmengine.c src\engine.c
 PALPROBESRCS = tests\palprobe.c
 
-# DirectQB C port (P0-P6): all modules in src/dqb/*.c (SB mixer in sound.c).
-DQBCS = src\dqb\globals.c src\dqb\main.c src\dqb\core_io.c src\dqb\doscall.c src\dqb\bit.c src\dqb\palette.c src\dqb\draw.c src\dqb\blending.c src\dqb\font.c src\dqb\image.c src\dqb\keyboard.c src\dqb\sound.c
+# DirectQB C port (P0-P7): all modules in src/dqb/*.c (SB mixer in sound.c).
+DQBCS = src\dqb\globals.c src\dqb\main.c src\dqb\main_extra.c src\dqb\core_io.c src\dqb\doscall.c src\dqb\bit.c src\dqb\palette.c src\dqb\draw.c src\dqb\sprite.c src\dqb\blending.c src\dqb\font.c src\dqb\image.c src\dqb\keyboard.c src\dqb\sound.c src\dqb\disk.c src\dqb\datafile.c src\dqb\mouse.c src\dqb\joystick.c src\dqb\threed.c
 DQBOBJ =
 
 # Legacy full ASM library (optional): wmake dqblib
