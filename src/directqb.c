@@ -7,6 +7,8 @@
  */
 #include "directqb.h"
 
+/* Near-pointer imgW/imgH for xDQBloadImage (same as legacy directqb.c). */
+
 static int stagedW, stagedH;
 
 int DQBloadImage(int layer, int x, int y, const char __far *file, void __far *pal, int *imgW, int *imgH)

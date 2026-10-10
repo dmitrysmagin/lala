@@ -28,7 +28,7 @@ WASM    = wasm
 # runs on a real or emulated FPU and never calls DQBangle anyway)
 WASMFLAGS = -fpi87
 WLIB    = wlib
-CFLAGS  = -0 -mm -s -zq -w4 -k16384
+CFLAGS  = -0 -mm -s -zq -w4 -k16384 -i=src
 # Test/harness sources live in tests\ (project rule), headers in src\ —
 # quoted includes in tests\*.c need src\ on the include path.
 TESTINCL = -i=src
@@ -48,33 +48,33 @@ TESTSRCS = tests\testmain.c tests\engtest.c src\engine.c src\fmengine.c src\dire
 MUSPLAYSRCS = tests\musplay.c src\fmengine.c src\engine.c src\directqb.c
 PALPROBESRCS = tests\palprobe.c src\directqb.c
 
-# DirectQB library, recompiled from dqb\*.ASM with WASM (see PORTING.md).
-# Excluded: dqb\CALLS.OBJ (BC-compiled BASIC, no ASM source) and the
-# superseded dqb\3D.ASM / dqb\3D3.ASM variants (only THREED.ASM is used).
-DQBLIB  = dqb\dqb.lib
+# DirectQB C port (P0-P4) + Sound Blaster ASM (IRQ mixer only).
+DQBCS = src\dqb\globals.c src\dqb\main.c src\dqb\core_io.c src\dqb\doscall.c src\dqb\bit.c src\dqb\palette.c src\dqb\draw.c src\dqb\blending.c src\dqb\font.c src\dqb\image.c src\dqb\keyboard.c src\dqb\sound.c
+DQBOBJ =
+
+# Legacy full ASM library (optional): wmake dqblib
 DQBASM  = dqb\MAIN.ASM dqb\DRAW.ASM dqb\SPRITE.ASM dqb\IMAGE.ASM dqb\FONT.ASM dqb\BLENDING.ASM dqb\PALETTE.ASM dqb\BIT.ASM dqb\DISK.ASM dqb\DATAFILE.ASM dqb\SOUND.ASM dqb\KEYBOARD.ASM dqb\MOUSE.ASM dqb\JOYSTICK.ASM dqb\THREED.ASM
+LEGACYDQBLIB = dqb\dqb.lib
 
 # --- Targets ---
 all: $(TARGET) $(TESTBIN) $(MUSPLAY)
 
-$(TARGET): $(GAMESRCS) $(DQBLIB)
-	$(WCL) $(CFLAGS) -fe=$(TARGET) $(GAMESRCS) $(DQBLIB)
+$(TARGET): $(GAMESRCS) $(DQBCS) $(DQBOBJ)
+	$(WCL) $(CFLAGS) -fe=$(TARGET) $(GAMESRCS) $(DQBCS) $(DQBOBJ)
 
-$(TESTBIN): $(TESTSRCS) $(DQBLIB)
-	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(TESTBIN) $(TESTSRCS) $(DQBLIB)
+$(TESTBIN): $(TESTSRCS) $(DQBCS) $(DQBOBJ)
+	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(TESTBIN) $(TESTSRCS) $(DQBCS) $(DQBOBJ)
 
-$(MUSPLAY): $(MUSPLAYSRCS) $(DQBLIB)
-	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(MUSPLAY) $(MUSPLAYSRCS) $(DQBLIB)
+$(MUSPLAY): $(MUSPLAYSRCS) $(DQBCS) $(DQBOBJ)
+	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(MUSPLAY) $(MUSPLAYSRCS) $(DQBCS) $(DQBOBJ)
 
-# One-off debug probe for the empty-palette investigation (NOT part of
-# the default build): isolated loadImage call shapes vs buffer fill.
-palprobe: $(PALPROBESRCS) $(DQBLIB)
-	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(PALPROBE) $(PALPROBESRCS) $(DQBLIB)
+palprobe: $(PALPROBESRCS) $(DQBCS) $(DQBOBJ)
+	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(PALPROBE) $(PALPROBESRCS) $(DQBCS) $(DQBOBJ)
 
-# Rebuild the DirectQB import library from sources.
-dqblib: $(DQBLIB)
+# Rebuild the legacy DirectQB import library from ASM sources.
+dqblib: $(LEGACYDQBLIB)
 
-$(DQBLIB): $(DQBASM)
+$(LEGACYDQBLIB): $(DQBASM)
 	$(WASM) $(WASMFLAGS) -fo=dqb\obj\MAIN.obj dqb\MAIN.ASM
 	$(WASM) $(WASMFLAGS) -fo=dqb\obj\DRAW.obj dqb\DRAW.ASM
 	$(WASM) $(WASMFLAGS) -fo=dqb\obj\SPRITE.obj dqb\SPRITE.ASM
@@ -90,7 +90,7 @@ $(DQBLIB): $(DQBASM)
 	$(WASM) $(WASMFLAGS) -fo=dqb\obj\MOUSE.obj dqb\MOUSE.ASM
 	$(WASM) $(WASMFLAGS) -fo=dqb\obj\JOYSTICK.obj dqb\JOYSTICK.ASM
 	$(WASM) $(WASMFLAGS) -fo=dqb\obj\THREED.obj dqb\THREED.ASM
-	$(WLIB) -n -q $(DQBLIB) +dqb\obj\MAIN.obj +dqb\obj\DRAW.obj +dqb\obj\SPRITE.obj +dqb\obj\IMAGE.obj +dqb\obj\FONT.obj +dqb\obj\BLENDING.obj +dqb\obj\PALETTE.obj +dqb\obj\BIT.obj +dqb\obj\DISK.obj +dqb\obj\DATAFILE.obj +dqb\obj\SOUND.obj +dqb\obj\KEYBOARD.obj +dqb\obj\MOUSE.obj +dqb\obj\JOYSTICK.obj +dqb\obj\THREED.obj
+	$(WLIB) -n -q $(LEGACYDQBLIB) +dqb\obj\MAIN.obj +dqb\obj\DRAW.obj +dqb\obj\SPRITE.obj +dqb\obj\IMAGE.obj +dqb\obj\FONT.obj +dqb\obj\BLENDING.obj +dqb\obj\PALETTE.obj +dqb\obj\BIT.obj +dqb\obj\DISK.obj +dqb\obj\DATAFILE.obj +dqb\obj\SOUND.obj +dqb\obj\KEYBOARD.obj +dqb\obj\MOUSE.obj +dqb\obj\JOYSTICK.obj +dqb\obj\THREED.obj
 
 # --- Clean ---
 clean:
@@ -99,6 +99,8 @@ clean:
 	del *.map
 	del src\*.obj
 	del src\*.err
+	del src\dqb\*.obj
+	del src\dqb\*.err
 	del tests\*.obj
 	del tests\*.err
 	del dqb\obj\*.obj
