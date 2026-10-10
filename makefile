@@ -48,10 +48,9 @@ TESTSRCS = tests\testmain.c tests\engtest.c src\engine.c src\fmengine.c
 MUSPLAYSRCS = tests\musplay.c src\fmengine.c src\engine.c
 PALPROBESRCS = tests\palprobe.c
 
-# DirectQB C port (P0-P6): C library + sound_drv.asm (SB IRQ mixer).
-# Linker aliases need WATCOM set (build.bat sets it).
+# DirectQB C port (P0-P6): all modules in src/dqb/*.c (SB mixer in sound.c).
 DQBCS = src\dqb\globals.c src\dqb\main.c src\dqb\core_io.c src\dqb\doscall.c src\dqb\bit.c src\dqb\palette.c src\dqb\draw.c src\dqb\blending.c src\dqb\font.c src\dqb\image.c src\dqb\keyboard.c src\dqb\sound.c
-DQBOBJ = dqb\obj\SOUND_DRV.obj
+DQBOBJ =
 
 # Legacy full ASM library (optional): wmake dqblib
 DQBASM  = dqb\MAIN.ASM dqb\DRAW.ASM dqb\SPRITE.ASM dqb\IMAGE.ASM dqb\FONT.ASM dqb\BLENDING.ASM dqb\PALETTE.ASM dqb\BIT.ASM dqb\DISK.ASM dqb\DATAFILE.ASM dqb\SOUND.ASM dqb\KEYBOARD.ASM dqb\MOUSE.ASM dqb\JOYSTICK.ASM dqb\THREED.ASM
@@ -60,21 +59,17 @@ LEGACYDQBLIB = dqb\dqb.lib
 # --- Targets ---
 all: $(TARGET) $(TESTBIN) $(MUSPLAY)
 
-dqb\obj\SOUND_DRV.obj: src\dqb\sound_drv.asm
-	@if not exist dqb\obj mkdir dqb\obj
-	$(WASM) $(WASMFLAGS) -fo=dqb\obj\SOUND_DRV.obj src\dqb\sound_drv.asm
-
 $(TARGET): $(GAMESRCS) $(DQBCS) $(DQBOBJ)
-	$(WCL) $(CFLAGS) -fm=bin\lala.map -fe=$(TARGET) $(GAMESRCS) $(DQBCS) $(DQBOBJ) @src\dqb\dqb_alias.lnk
+	$(WCL) $(CFLAGS) -fm=bin\lala.map -fe=$(TARGET) $(GAMESRCS) $(DQBCS) $(DQBOBJ)
 
 $(TESTBIN): $(TESTSRCS) $(DQBCS) $(DQBOBJ)
-	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(TESTBIN) $(TESTSRCS) $(DQBCS) $(DQBOBJ) @src\dqb\dqb_alias.lnk
+	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(TESTBIN) $(TESTSRCS) $(DQBCS) $(DQBOBJ)
 
 $(MUSPLAY): $(MUSPLAYSRCS) $(DQBCS) $(DQBOBJ)
-	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(MUSPLAY) $(MUSPLAYSRCS) $(DQBCS) $(DQBOBJ) @src\dqb\dqb_alias.lnk
+	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(MUSPLAY) $(MUSPLAYSRCS) $(DQBCS) $(DQBOBJ)
 
 palprobe: $(PALPROBESRCS) $(DQBCS) $(DQBOBJ)
-	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(PALPROBE) $(PALPROBESRCS) $(DQBCS) $(DQBOBJ) @src\dqb\dqb_alias.lnk
+	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(PALPROBE) $(PALPROBESRCS) $(DQBCS) $(DQBOBJ)
 
 # Rebuild the legacy DirectQB import library from ASM sources.
 dqblib: $(LEGACYDQBLIB)
@@ -109,7 +104,6 @@ clean:
 	del tests\*.obj
 	del tests\*.err
 	del dqb\obj\*.obj
-	del dqb\obj\SOUND_DRV.obj
 	del $(TARGET)
 	del $(TESTBIN)
 	del $(MUSPLAY)

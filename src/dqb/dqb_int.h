@@ -50,14 +50,6 @@ extern unsigned short OldIRQseg, OldIRQoff;
 extern unsigned short OldInt24seg, OldInt24off;
 extern unsigned char LastError;
 
-/* ASM sound module entry points (SOUND.ASM). */
-extern unsigned char DMA;
-extern unsigned char PicANDmask;
-extern unsigned short DMA_Page, DMA_Base, DMA_Count;
-extern unsigned short SamplingRate;
-extern unsigned short Channels;
-
-/* Called from SOUND.ASM — must match .MODEL medium,basic names. */
 void __far MapEMS(unsigned short page);
 int __far ReadBuffer(void);
 void __far HookInt24(void);
