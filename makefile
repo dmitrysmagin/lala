@@ -16,7 +16,11 @@
 # Output goes to bin\ folder (mounted as C: in DOSBox, see run.bat/lala.conf).
 
 # Compiler: 8086 (-0), MEDIUM model (-mm, like QB 4.5 and DQB's own
-# .MODEL medium: far code, single near DGROUP, SS == DS), no stack check
+# .MODEL medium: far code, single near DGROUP, SS == DS), no stack check.
+# -k16384: explicit program stack. Replaces QB's `SETMEM(-513)` (LALA.BAS):
+# QB managed a pre-allocated far heap + fixed stack, Watcom pulls far
+# memory from DOS on demand (_fmalloc = INT 21h), so the only static
+# memory to pin is the stack (PORTING.md §2).
 WCL     = wcl
 WASM    = wasm
 # -fpi87: real 8087 opcodes, no FP-emulation helper (WASM default
@@ -24,7 +28,10 @@ WASM    = wasm
 # runs on a real or emulated FPU and never calls DQBangle anyway)
 WASMFLAGS = -fpi87
 WLIB    = wlib
-CFLAGS  = -0 -mm -s -zq -w4
+CFLAGS  = -0 -mm -s -zq -w4 -k16384
+# Test/harness sources live in tests\ (project rule), headers in src\ —
+# quoted includes in tests\*.c need src\ on the include path.
+TESTINCL = -i=src
 
 # Output — 8.3 filenames required for DOSBox mount
 TARGET  = bin\lala.exe
@@ -33,10 +40,11 @@ MUSPLAY = bin\musplay.exe
 
 # Source files (order matters for wcl — first .c becomes the target name).
 # The game ships lean (no test code — the image has a ~64K ceiling,
-# see PORTING.md); the harness builds as a separate test binary.
+# see PORTING.md); the harness builds as a separate test binary from
+# tests\ (testmain.c + engtest.c) and musplay.c likewise lives there.
 GAMESRCS = src\lala.c src\engine.c src\fmengine.c src\directqb.c
-TESTSRCS = src\testmain.c src\engtest.c src\engine.c src\fmengine.c src\directqb.c
-MUSPLAYSRCS = src\musplay.c src\fmengine.c src\engine.c src\directqb.c
+TESTSRCS = tests\testmain.c tests\engtest.c src\engine.c src\fmengine.c src\directqb.c
+MUSPLAYSRCS = tests\musplay.c src\fmengine.c src\engine.c src\directqb.c
 
 # DirectQB library, recompiled from dqb\*.ASM with WASM (see PORTING.md).
 # Excluded: dqb\CALLS.OBJ (BC-compiled BASIC, no ASM source) and the
@@ -51,10 +59,10 @@ $(TARGET): $(GAMESRCS) $(DQBLIB)
 	$(WCL) $(CFLAGS) -fe=$(TARGET) $(GAMESRCS) $(DQBLIB)
 
 $(TESTBIN): $(TESTSRCS) $(DQBLIB)
-	$(WCL) $(CFLAGS) -fe=$(TESTBIN) $(TESTSRCS) $(DQBLIB)
+	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(TESTBIN) $(TESTSRCS) $(DQBLIB)
 
 $(MUSPLAY): $(MUSPLAYSRCS) $(DQBLIB)
-	$(WCL) $(CFLAGS) -fe=$(MUSPLAY) $(MUSPLAYSRCS) $(DQBLIB)
+	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(MUSPLAY) $(MUSPLAYSRCS) $(DQBLIB)
 
 # Rebuild the DirectQB import library from sources.
 dqblib: $(DQBLIB)
@@ -84,6 +92,8 @@ clean:
 	del *.map
 	del src\*.obj
 	del src\*.err
+	del tests\*.obj
+	del tests\*.err
 	del dqb\obj\*.obj
 	del $(TARGET)
 	del $(TESTBIN)

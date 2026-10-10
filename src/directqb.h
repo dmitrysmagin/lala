@@ -10,7 +10,7 @@
  * far-pointer params are (seg, off) word pairs; Watcom pushes far
  * pointers seg-first, and materializes near->far with DS, so string
  * literals and DGROUP buffers pass straight through (verified live
- * by the render test in src/engtest.c).
+ * by the render test in tests/engtest.c).
  *
  * SEGMENT RULES (the ASM assumes them, verified against sources):
  *  - `char __far *file` params: literals and DGROUP buffers only,

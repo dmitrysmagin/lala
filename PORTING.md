@@ -57,8 +57,12 @@
   across SS≠DS breaks wlink fixups (see quirks).
 - DOSBox conf needs `ems=true` (`DQBinit(5,11,0)` allocates 64 EMS
   pages; with `ems=false` init fails). Fixed in `lala.conf`.
-- `SETMEM(-513)` in `LALA.BAS` → `wlink` stack/heap directives instead
-  (still open, needed before the full game with big maps).
+- `SETMEM(-513)` in `LALA.BAS` → **DONE (Phase 4)**: replaced by the
+  makefile's `wcl -k16384` stack directive. QB pre-allocated its far
+  heap at startup, so `SETMEM` had to hand memory around explicitly;
+  Watcom's medium model pulls far memory from DOS on demand
+  (`_fmalloc` → INT 21h), so the far-heap half needs no directive and
+  the only static memory to pin is the program stack.
 - Keep `build.sh`/SDL files untouched; the Watcom path is
   `makefile` → `bin\`.
 - Ongoing constraint: single 64K code group + absolute-addressed DQB
@@ -100,7 +104,7 @@
   buffer, `prCh`/`statBuf`/title `pal` statics (documented in headers).
   All asset paths normalized to DOS `\` (were `/`, `//`).
   `DQBerror$` skipped (BC-compiled, in `CALLS.OBJ` — plain messages).
-- Verified: `lala.exe test` runs 121-check `src/engtest.c` headless in
+- Verified: `lala.exe test` runs 121-check `tests/engtest.c` headless in
   DOSBox — loaders (hand-verified values), collision/keyhole/frames,
   8-frame physics smoke (matches hand computation), full render path
   (init/font/PCX/puts/print/layers/palette/VGA calls) — **ENGTEST:
@@ -136,21 +140,30 @@
 - Verified: `bin\musplay.exe` (minimal player: init/load/ISR-play/
   silence/exit) plays G66A/MC12/DESORUIN headless — rows advance at
   exactly 8 rows/sec (speed 6 @ 50fps) with continuous OPL writes,
-  clean exits. `src/engtest.c` covers headers, goldens
+  clean exits. `tests/engtest.c` covers headers, goldens
   (`note2period`, `VibVal` incl. BYREF reset), row-0 sounding, and
   ISR-driven progression.
 - `lala.c`/`engine.c`: real `FMinit` at startup, `FMend` at exit,
   `FMstop()` + `BeSilent()` at the three `PLAY STOP` sites.
 
-## 6. Integration & acceptance
+## 6. Phase 4 — Integration & acceptance (implementation DONE)
 
 - `wmake` → `run.bat` → full loop in DOSBox 0.74 (`lala.conf` as-is):
   init messages, font, SB init, title demo game, playable game,
-  ending screen, clean text-mode exit.
+  ending screen, clean text-mode exit. The whole loop is wired in
+  `src/lala.c` (main → showTitle → engineDoGame → showEnding →
+  clean `DQBinitText`/`DQBclose`/`FMend` exit).
+- Test harnesses live in `tests/` (project rule): `tests/testmain.c` +
+  `tests/engtest.c` → `bin\test.exe`, `tests/musplay.c` →
+  `bin\musplay.exe`. The game binary stays lean (test code would blow
+  the ~64K image ceiling — see quirks appendix).
+- `SETMEM(-513)` closed via `wcl -k16384` (§2).
 - Byte-compare behavior, not bytes: same maps (`MAP/LALA.MAP`), same
   physics constants, same SFX slots.
 - Deliberate non-goals: `DQBerror$` text fidelity, mouse/joystick/3D
   modules, SDL path changes.
+- Remaining: the DOSBox playtest run itself (`build` → `run.bat`),
+  then fix whatever it uncovers.
 
 **Suggested execution order:** Phase 0 lib → Phase 1 bindings →
 Phase 2 engine (this doc) → Phase 3 FMENGINE → playtest pass.

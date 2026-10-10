@@ -96,7 +96,9 @@ int main(void)
      * This blender map has been created for colours 254 (white) and
      * 255 (black). This way you can easily create nifty
      * "darken"/"brighten" effects easily. */
-    /* dummy& = SETMEM(-513) (Phase 2/3: wlink stack directives) */
+    /* dummy& = SETMEM(-513) of LALA.BAS: replaced by the makefile's
+     * wcl -k16384 stack directive (Watcom far heap is DOS-on-demand,
+     * see PORTING.md §2) */
     i = DQBcreateBMap(1, 254, 255);
 
     if (i) {
