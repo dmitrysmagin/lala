@@ -854,8 +854,8 @@ int engineDoGame(int flag)
     int hotSpotsTiles[4];
     int res = 0;
     int lastRow, lastPant, nPant;
-    int frame, halfLife, subFrame;
-    int w, h;
+    int frame, halfLife, subFrame, ticks;
+    int w, h, imgRc;
 
     DBG(("DoGame: enter flag=%d", flag));
     DBG(("DoGame: buff=%04X:%04X enems=%04X:%04X hot=%04X:%04X",
@@ -881,11 +881,12 @@ int engineDoGame(int flag)
 
     if (flag) {
         DQBclearLayer(3);
-        DQBloadImage(3, prefs.screenPos.x, prefs.screenPos.y,
+        imgRc = DQBloadImage(3, prefs.screenPos.x, prefs.screenPos.y,
             asset("GFX", prefs.backdropFile), prefs.pal, &w, &h);
-        DBG(("DoGame: backdrop pal[0..5]=%d %d %d %d %d %d",
-            prefs.pal[0], prefs.pal[1], prefs.pal[2],
-            prefs.pal[3], prefs.pal[4], prefs.pal[5]));
+        DBG(("DoGame: backdrop rc=%d pal[0..5]=%d %d %d %d %d %d",
+            imgRc, (unsigned char)prefs.pal[0], (unsigned char)prefs.pal[1],
+            (unsigned char)prefs.pal[2], (unsigned char)prefs.pal[3],
+            (unsigned char)prefs.pal[4], (unsigned char)prefs.pal[5]));
     }
     map = engineMapLoad();
     DBG(("DoGame: map=%04X:%04X", DBG_SEG(map), DBG_OFF(map)));
@@ -896,13 +897,18 @@ int engineDoGame(int flag)
     frame = 0;
     halfLife = 0;
     subFrame = 0;
+    ticks = 0;
 
     if (flag && !g_noSound) {
         /* ambient */
-        if (prefs.bgL1)
+        if (prefs.bgL1) {
+            DBG(("DoGame: play bgL1=%d", prefs.bgL1));
             DQBplaySound(prefs.bgL1, 5, 11025, LOOPED);
-        if (prefs.bgL2)
+        }
+        if (prefs.bgL2) {
+            DBG(("DoGame: play bgL2=%d", prefs.bgL2));
             DQBplaySound(prefs.bgL2, 6, 11025, LOOPED);
+        }
 
         /* music */
         if (prefs.bgM[0])
@@ -916,8 +922,6 @@ int engineDoGame(int flag)
 
     while (!DQBkey(1)) {
         int x, y, i, s;
-        if (g_autoTick)
-            g_autoTick();
         halfLife = 1 - halfLife;
         subFrame = (subFrame + 1) & 3;
         if (subFrame == 0) {
@@ -1029,6 +1033,8 @@ int engineDoGame(int flag)
         /* Show */
         DQBwait(1);
         DQBcopyLayer(1, VIDEO);
+        if (g_autoTick)
+            g_autoTick();
 
         /* Cheat */
         if (DQBkey(17) && DQBkey(18) && DQBkey(19)) {
@@ -1049,9 +1055,14 @@ int engineDoGame(int flag)
             flag = 0;
         }
 
+        ticks++;
         if (DQBkey(28) && !flag) {
-            res = -3;
-            break;
+            if (g_autoTick && ticks < 25) {
+                KeyStatus[28] = 0;
+            } else {
+                res = -3;
+                break;
+            }
         }
     }
 
@@ -1079,6 +1090,8 @@ void engineLoadTileset()
     int i, w, h, x, y;
 
     i = DQBloadImage(3, 0, 0, asset("GFX", prefs.tilesetFile), prefs.pal, &w, &h);
+    DBG(("loadTileset: rc=%d pal0=%d pal3=%d", i, (unsigned char)prefs.pal[0],
+        (unsigned char)prefs.pal[3]));
 
     x = 0; y = 0;
     

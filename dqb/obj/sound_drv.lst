@@ -1,0 +1,184 @@
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+DGROUP . . . . . . . . . . . . .        GROUP
+_DATA  . . . . . . . . . . . . .        16 Bit   0658     Word    Public  'DATA'
+sound_drv_TEXT . . . . . . . . .        16 Bit   07BE     Word    Public  'CODE'
+
+
+
+Procedures:
+
+                N a m e                 Type     Value    Attr
+
+DQBinUse . . . . . . . . . . . .        P Far    00000636 sound_drv_TEXT	Length= 00000019 Public BASIC
+DQBinstallSB . . . . . . . . . .        P Far    00000000 sound_drv_TEXT	Length= 000004FD Public BASIC
+DQBpauseSound  . . . . . . . . .        P Far    00000650 sound_drv_TEXT	Length= 0000002A Public BASIC
+DQBplaySound . . . . . . . . . .        P Far    000005BE sound_drv_TEXT	Length= 00000078 Public BASIC
+DQBremoveSB  . . . . . . . . . .        P Far    000006DA sound_drv_TEXT	Length= 00000083 Public BASIC
+DQBresumeSound . . . . . . . . .        P Far    0000067A sound_drv_TEXT	Length= 0000002A Public BASIC
+DQBsetFreq . . . . . . . . . . .        P Far    0000075E sound_drv_TEXT	Length= 00000039 Public BASIC
+DQBsetVoiceVol . . . . . . . . .        P Far    000006C2 sound_drv_TEXT	Length= 00000017 Public BASIC
+DQBsetVolume . . . . . . . . . .        P Far    00000798 sound_drv_TEXT	Length= 00000026 Public BASIC
+DQBstopVoice . . . . . . . . . .        P Far    000006A4 sound_drv_TEXT	Length= 0000001E Public BASIC
+xDQBloadRawSound . . . . . . . .        P Far    000004FE sound_drv_TEXT	Length= 000000BF Public BASIC
+
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+??0000 . . . . . . . . . . . . .        L Near   0223     sound_drv_TEXT	
+??0001 . . . . . . . . . . . . .        L Near   022B     sound_drv_TEXT	
+??0002 . . . . . . . . . . . . .        L Near   026D     sound_drv_TEXT	
+??0003 . . . . . . . . . . . . .        L Near   0275     sound_drv_TEXT	
+??0004 . . . . . . . . . . . . .        L Near   027F     sound_drv_TEXT	
+??0005 . . . . . . . . . . . . .        L Near   0287     sound_drv_TEXT	
+??0006 . . . . . . . . . . . . .        L Near   0294     sound_drv_TEXT	
+??0007 . . . . . . . . . . . . .        L Near   029C     sound_drv_TEXT	
+??0008 . . . . . . . . . . . . .        L Near   02BB     sound_drv_TEXT	
+??0009 . . . . . . . . . . . . .        L Near   02C3     sound_drv_TEXT	
+??0010 . . . . . . . . . . . . .        L Near   0328     sound_drv_TEXT	
+??0011 . . . . . . . . . . . . .        L Near   0376     sound_drv_TEXT	
+??0012 . . . . . . . . . . . . .        L Near   037E     sound_drv_TEXT	
+??0013 . . . . . . . . . . . . .        L Near   0385     sound_drv_TEXT	
+??0014 . . . . . . . . . . . . .        L Near   038D     sound_drv_TEXT	
+??0015 . . . . . . . . . . . . .        L Near   0394     sound_drv_TEXT	
+??0016 . . . . . . . . . . . . .        L Near   039C     sound_drv_TEXT	
+??0017 . . . . . . . . . . . . .        L Near   03A6     sound_drv_TEXT	
+??0018 . . . . . . . . . . . . .        L Near   03AE     sound_drv_TEXT	
+??0019 . . . . . . . . . . . . .        L Near   03B5     sound_drv_TEXT	
+??0020 . . . . . . . . . . . . .        L Near   03BD     sound_drv_TEXT	
+??0021 . . . . . . . . . . . . .        L Near   03C4     sound_drv_TEXT	
+??0022 . . . . . . . . . . . . .        L Near   03CC     sound_drv_TEXT	
+??0023 . . . . . . . . . . . . .        L Near   0413     sound_drv_TEXT	
+??0025 . . . . . . . . . . . . .        L Near   0458     sound_drv_TEXT	
+??0026 . . . . . . . . . . . . .        L Near   047F     sound_drv_TEXT	
+??0027 . . . . . . . . . . . . .        L Near   0483     sound_drv_TEXT	
+??0028 . . . . . . . . . . . . .        L Near   04B3     sound_drv_TEXT	
+??0029 . . . . . . . . . . . . .        L Near   04C5     sound_drv_TEXT	
+??0030 . . . . . . . . . . . . .        L Near   0668     sound_drv_TEXT	
+??0031 . . . . . . . . . . . . .        L Near   0670     sound_drv_TEXT	
+??0032 . . . . . . . . . . . . .        L Near   0692     sound_drv_TEXT	
+??0033 . . . . . . . . . . . . .        L Near   069A     sound_drv_TEXT	
+??0034 . . . . . . . . . . . . .        L Near   070F     sound_drv_TEXT	
+??0035 . . . . . . . . . . . . .        L Near   0717     sound_drv_TEXT	
+@B . . . . . . . . . . . . . . .        L Near   04D8     sound_drv_TEXT	
+@CodeSize  . . . . . . . . . . .        Number   0001h
+@DataSize  . . . . . . . . . . .        Number   0000h
+@Interface . . . . . . . . . . .        Number   0006h
+@Model . . . . . . . . . . . . .        Number   0004h
+@code  . . . . . . . . . . . . .        Text     sound_drv_TEXT
+@data  . . . . . . . . . . . . .        Text     DGROUP
+BLASTERdone  . . . . . . . . . .        L Near   00FD     sound_drv_TEXT	
+BUFFERLEN  . . . . . . . . . . .        Number   0200h
+BaseAddr . . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+Blaster  . . . . . . . . . . . .        Byte     0000     _DATA	
+Buffer . . . . . . . . . . . . .        Byte     0000     No Seg	External BASIC
+Channels . . . . . . . . . . . .        Word     0014     _DATA	
+CheckSounds  . . . . . . . . . .        L Near   0016     sound_drv_TEXT	
+ClipSample . . . . . . . . . . .        Text     ??0029
+ComputeSample  . . . . . . . . .        L Near   014D     sound_drv_TEXT	
+ComputeVol . . . . . . . . . . .        L Near   014F     sound_drv_TEXT	
+Counter  . . . . . . . . . . . .        Word     00D6     _DATA	
+DMA  . . . . . . . . . . . . . .        Byte     0008     _DATA	
+DMA_Base . . . . . . . . . . . .        Word     000C     _DATA	
+DMA_Count  . . . . . . . . . . .        Word     000E     _DATA	
+DMA_Page . . . . . . . . . . . .        Word     000A     _DATA	
+DMAdone  . . . . . . . . . . . .        L Near   0207     sound_drv_TEXT	
+DMAerror . . . . . . . . . . . .        L Near   01FB     sound_drv_TEXT	
+DSPok  . . . . . . . . . . . . .        L Near   02B5     sound_drv_TEXT	
+DontLoop . . . . . . . . . . . .        Text     ??0027
+EMSallocated . . . . . . . . . .        Word     0000     No Seg	External BASIC
+EMShdl . . . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+EMSpage  . . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+EMSseg . . . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+EndLoadRaw . . . . . . . . . . .        L Near   05B3     sound_drv_TEXT	
+EndPauseSound  . . . . . . . . .        L Near   0679     sound_drv_TEXT	
+EndPlaySound . . . . . . . . . .        L Near   0632     sound_drv_TEXT	
+EndReadDSP . . . . . . . . . . .        Text     ??0035
+EndRemoveSB  . . . . . . . . . .        L Near   075C     sound_drv_TEXT	
+EndResumeSound . . . . . . . . .        L Near   06A3     sound_drv_TEXT	
+EndSetVolume . . . . . . . . . .        L Near   07BA     sound_drv_TEXT	
+EndStopVoice . . . . . . . . . .        L Near   06BE     sound_drv_TEXT	
+EndWriteDSP  . . . . . . . . . .        Text     ??0033
+Error_BLASTER  . . . . . . . . .        L Near   0117     sound_drv_TEXT	
+Error_BadSlot1 . . . . . . . . .        L Near   05AB     sound_drv_TEXT	
+Error_EOF  . . . . . . . . . . .        L Near   059C     sound_drv_TEXT	
+Error_OpenRaw  . . . . . . . . .        L Near   0583     sound_drv_TEXT	
+Error_ReadRaw  . . . . . . . . .        L Near   058D     sound_drv_TEXT	
+HighCount  . . . . . . . . . . .        Word     0096     _DATA	
+HookInt24  . . . . . . . . . . .        L Far    0000     No Seg	External BASIC
+IRQ  . . . . . . . . . . . . . .        Byte     0000     No Seg	External BASIC
+InstallSB  . . . . . . . . . . .        L Near   0029     sound_drv_TEXT	
+L&_0 . . . . . . . . . . . . . .        L Near   0047     sound_drv_TEXT	
+L&_1 . . . . . . . . . . . . . .        L Near   0072     sound_drv_TEXT	
+L&_2 . . . . . . . . . . . . . .        L Near   0086     sound_drv_TEXT	
+L&_3 . . . . . . . . . . . . . .        L Near   00C5     sound_drv_TEXT	
+L&_4 . . . . . . . . . . . . . .        L Near   00EB     sound_drv_TEXT	
+L&_5 . . . . . . . . . . . . . .        L Near   020A     sound_drv_TEXT	
+L&_6 . . . . . . . . . . . . . .        L Near   049F     sound_drv_TEXT	
+L&_7 . . . . . . . . . . . . . .        L Near   04D1     sound_drv_TEXT	
+LastError  . . . . . . . . . . .        Byte     0000     No Seg	External BASIC
+LoopThis . . . . . . . . . . . .        Text     ??0026
+LowCount . . . . . . . . . . . .        Word     0056     _DATA	
+MapEMS . . . . . . . . . . . . .        L Far    0000     No Seg	External BASIC
+MapPage2 . . . . . . . . . . . .        Text     ??0024
+MemOk  . . . . . . . . . . . . .        L Near   0144     sound_drv_TEXT	
+MixBuffer  . . . . . . . . . . .        Word     0258     _DATA	
+MixDone  . . . . . . . . . . . .        Text     ??0028
+MixIt  . . . . . . . . . . . . .        Text     ??0025
+MixPtr . . . . . . . . . . . . .        Word     0256     _DATA	
+MixSample  . . . . . . . . . . .        Text     ??0023
+NoOverRide . . . . . . . . . . .        Text     ??0010
+NotInstalled . . . . . . . . . .        L Near   0036     sound_drv_TEXT	
+NumSounds  . . . . . . . . . . .        Byte     0000     No Seg	External BASIC
+OldIRQoff  . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+OldIRQseg  . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+PauseSound . . . . . . . . . . .        Byte     0013     _DATA	
+PicANDmask . . . . . . . . . . .        Byte     0009     _DATA	
+PicORmask  . . . . . . . . . . .        Byte     0000     No Seg	External BASIC
+Playing  . . . . . . . . . . . .        Byte     0012     _DATA	
+ReadBuffer . . . . . . . . . . .        L Far    0000     No Seg	External BASIC
+SBmix  . . . . . . . . . . . . .        L Near   03DB     sound_drv_TEXT	
+SamplePtr  . . . . . . . . . . .        Word     0016     _DATA	
+SamplingRate . . . . . . . . . .        Word     0010     _DATA	
+ScanA  . . . . . . . . . . . . .        L Near   005C     sound_drv_TEXT	
+ScanD  . . . . . . . . . . . . .        L Near   00D7     sound_drv_TEXT	
+ScanI  . . . . . . . . . . . . .        L Near   00B1     sound_drv_TEXT	
+SettingsOk . . . . . . . . . . .        L Near   0123     sound_drv_TEXT	
+SkipVol  . . . . . . . . . . . .        L Near   06F8     sound_drv_TEXT	
+SoundActive  . . . . . . . . . .        Byte     0000     No Seg	External BASIC
+SoundBuffer  . . . . . . . . . .        Byte     0458     _DATA	
+SoundLen . . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+SoundPage  . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+StillPlaying . . . . . . . . . .        L Near   05E4     sound_drv_TEXT	
+TestDMA1 . . . . . . . . . . . .        L Near   01B3     sound_drv_TEXT	
+TestDMA2 . . . . . . . . . . . .        L Near   01CB     sound_drv_TEXT	
+TestDMA3 . . . . . . . . . . . .        L Near   01E3     sound_drv_TEXT	
+UnhookInt24  . . . . . . . . . .        L Far    0000     No Seg	External BASIC
+VoiceLoop  . . . . . . . . . . .        Word     0156     _DATA	
+VoiceLoopEnd . . . . . . . . . .        Word     01D6     _DATA	
+VoiceLoopLen . . . . . . . . . .        Word     0216     _DATA	
+VoiceSound . . . . . . . . . . .        Word     0116     _DATA	
+VoiceVol . . . . . . . . . . . .        Word     0196     _DATA	
+VolActive  . . . . . . . . . . .        Byte     0000     No Seg	External BASIC
+VolSeg . . . . . . . . . . . . .        Word     0000     No Seg	External BASIC
+VolumeDone . . . . . . . . . . .        L Near   0174     sound_drv_TEXT	
+WaitRead . . . . . . . . . . . .        Text     ??0034
+WaitWrite  . . . . . . . . . . .        Text     ??0032
+__386__  . . . . . . . . . . . .        Number   0001h
+__8086__ . . . . . . . . . . . .        Number   0001h
+__8087__ . . . . . . . . . . . .        Number   0001h
+__BASIC__  . . . . . . . . . . .        Number   0001h
+__FPI87__  . . . . . . . . . . .        Number   0001h
+__MEDIUM__ . . . . . . . . . . .        Number   0001h
+__NT__ . . . . . . . . . . . . .        Number   0001h
+__WASM__ . . . . . . . . . . . .        Number   07D0h
+rateOk . . . . . . . . . . . . .        L Near   025F     sound_drv_TEXT	
+resetOk  . . . . . . . . . . . .        L Near   0243     sound_drv_TEXT	
+

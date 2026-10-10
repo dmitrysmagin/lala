@@ -9,9 +9,15 @@ void DQBAPI DQBinstallKeyboard(void)
 {
     union REGS regs;
     struct SREGS sregs;
+    int i;
 
     if (KeyActive)
         return;
+    for (i = 0; i < 128; i++)
+        KeyStatus[i] = 0;
+    /* Drop any leftover make code (the Enter that launched the EXE). */
+    while (inp(0x64) & 1)
+        (void)inp(0x60);
     KeyFlags = inp(0x417) & 0x70;
     regs.x.ax = 0x3509;
     dqb_int386x(0x21, &regs, &regs, &sregs);
@@ -49,7 +55,12 @@ static void __interrupt __far dqb_key_isr(void)
     unsigned idx = sc & 0x7F;
 
     KeyStatus[idx] = release ? 0 : 1;
-    outp(0x61, inp(0x61) | 0x80);
+    /* Pulse 61h bit 7 so the 8042 drops IRQ1 (make+break, not a stuck key). */
+    {
+        unsigned char kbd = inp(0x61);
+        outp(0x61, kbd | 0x80);
+        outp(0x61, kbd);
+    }
     outp(0x20, 0x20);
 }
 

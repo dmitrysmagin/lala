@@ -98,10 +98,18 @@ int DQBAPI xDQBloadBMap(int bmap, char __far *file)
     }
     map = (unsigned char far *)MK_FP(BMapSeg[bi], 0);
     {
+        unsigned char chunk[256];
         size_t need = (size_t)(256 * (BMapLast[bi] - BMapFirst[bi] + 1));
-        if (fread(map, 1, need, f) != need) {
-            fclose(f);
-            return 5;
+        while (need) {
+            size_t n = need > sizeof(chunk) ? sizeof(chunk) : need;
+            size_t got = fread(chunk, 1, n, f);
+            if (got == 0) {
+                fclose(f);
+                return 5;
+            }
+            _fmemcpy(map, chunk, got);
+            map += got;
+            need -= got;
         }
     }
     fclose(f);

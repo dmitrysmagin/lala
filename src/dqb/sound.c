@@ -7,16 +7,17 @@ int DQBAPI xDQBloadSound(int slot, char __far *file)
 {
     FILE *f;
     unsigned char hdr[12];
-    unsigned long dataLen;
+    unsigned char chunk[512];
+    unsigned long dataLen, left;
     unsigned short page;
     unsigned char far *dst;
-    size_t n;
+    size_t n, got;
 
     if (slot < 1 || slot > (int)NumSounds)
         return 1;
 
     dqb_hook_int24();
-    f = fopen((const char __far *)file, "rb");
+    f = fopen((const char *)file, "rb");
     if (!f) {
         dqb_unhook_int24();
         return 1;
@@ -49,8 +50,19 @@ int DQBAPI xDQBloadSound(int slot, char __far *file)
     page = (unsigned short)((SoundPage / 4 + (unsigned short)(slot - 1)) * 4);
     dqb_map_ems(page);
     dst = (unsigned char __far *)MK_FP(EMSseg, 0);
-    n = fread(dst, 1, (size_t)dataLen, f);
+    /* Medium-model fread() is near-only; a far EMS dest would truncate
+     * to DGROUP:0 and smash the runtime (hang after installSB). */
+    left = dataLen;
+    while (left) {
+        n = (left > sizeof(chunk)) ? sizeof(chunk) : (size_t)left;
+        got = fread(chunk, 1, n, f);
+        if (got == 0)
+            break;
+        _fmemcpy(dst, chunk, got);
+        dst += got;
+        left -= got;
+    }
     fclose(f);
     dqb_unhook_int24();
-    return (n == dataLen) ? 0 : 2;
+    return (left == 0) ? 0 : 2;
 }

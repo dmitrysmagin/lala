@@ -7,13 +7,14 @@ static int load_pcx(FILE *f, unsigned char far *layer, int ox, int oy,
 {
     unsigned char hdr[128];
     int xmin, ymin, xsize, ysize;
-    int x, y, dx;
+    int y, dx;
     unsigned char block[769];
     long palPos;
 
     if (fread(hdr, 1, 128, f) != 128)
         return 2;
-    if (hdr[0] != 0x0A || hdr[1] != 1 || hdr[2] != 8)
+    /* DirectQB: manufacturer 0x0A, version 5, RLE, 8bpp. */
+    if (hdr[0] != 0x0A || hdr[1] != 5 || hdr[2] != 1 || hdr[3] != 8)
         return 3;
 
     xmin = hdr[4] | (hdr[5] << 8);
@@ -76,7 +77,7 @@ static int load_pcx(FILE *f, unsigned char far *layer, int ox, int oy,
     return 0;
 }
 
-int DQBAPI xDQBloadImage(int layer, int x, int y, char __far *file,
+static int load_image(int layer, int x, int y, char __far *file,
     char __far *pal, int __near *imgW, int __near *imgH)
 {
     unsigned short seg = dqb_get_layer_seg((unsigned)layer);
@@ -85,7 +86,7 @@ int DQBAPI xDQBloadImage(int layer, int x, int y, char __far *file,
     int b0, rc;
 
     dqb_hook_int24();
-    f = fopen(file, "rb");
+    f = fopen((const char *)file, "rb");
     if (!f) {
         dqb_unhook_int24();
         return 1;
@@ -108,9 +109,15 @@ int DQBAPI xDQBloadImage(int layer, int x, int y, char __far *file,
     return 3;
 }
 
+int DQBAPI xDQBloadImage(int layer, int x, int y, char __far *file,
+    char __far *pal, int __near *imgW, int __near *imgH)
+{
+    return load_image(layer, x, y, file, pal, imgW, imgH);
+}
+
 int DQBloadImage(int layer, int x, int y, const char __far *file, void __far *pal,
     int *imgW, int *imgH)
 {
-    return xDQBloadImage(layer, x, y, (char __far *)file, (char __far *)pal,
+    return load_image(layer, x, y, (char __far *)file, (char __far *)pal,
         (int __near *)imgW, (int __near *)imgH);
 }

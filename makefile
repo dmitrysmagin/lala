@@ -65,7 +65,7 @@ dqb\obj\SOUND_DRV.obj: src\dqb\sound_drv.asm
 	$(WASM) $(WASMFLAGS) -fo=dqb\obj\SOUND_DRV.obj src\dqb\sound_drv.asm
 
 $(TARGET): $(GAMESRCS) $(DQBCS) $(DQBOBJ)
-	$(WCL) $(CFLAGS) -fe=$(TARGET) $(GAMESRCS) $(DQBCS) $(DQBOBJ) @src\dqb\dqb_alias.lnk
+	$(WCL) $(CFLAGS) -fm=bin\lala.map -fe=$(TARGET) $(GAMESRCS) $(DQBCS) $(DQBOBJ) @src\dqb\dqb_alias.lnk
 
 $(TESTBIN): $(TESTSRCS) $(DQBCS) $(DQBOBJ)
 	$(WCL) $(CFLAGS) $(TESTINCL) -fe=$(TESTBIN) $(TESTSRCS) $(DQBCS) $(DQBOBJ) @src\dqb\dqb_alias.lnk

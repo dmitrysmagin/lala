@@ -36,15 +36,19 @@ static void dumpVga(const char *fn)
 {
     static unsigned char chunk[4000];
     static unsigned char dac[768];
-    unsigned char __far *vga = (unsigned char __far *)MK_FP(0xA000, 0);
     unsigned long off;
     unsigned i;
     FILE *f = fopen(fn, "wb");
-    if (!f)
+    if (!f) {
+        DBG(("auto: dump %s fopen FAILED", fn));
         return;
+    }
+    DBG(("auto: dump %s", fn));
     for (off = 0; off < 64000UL; off += 4000UL) {
+        unsigned char __far *vga =
+            (unsigned char __far *)MK_FP(0xA000, (unsigned short)off);
         for (i = 0; i < 4000; i++)
-            chunk[i] = vga[off + i];
+            chunk[i] = vga[i];
         fwrite(chunk, 1, 4000, f);
     }
     fclose(f);
@@ -67,10 +71,12 @@ static void autoTick(void)
 {
     switch (autoStage) {
     case 0:
-        /* title demo: let it run, snapshot, then press ENTER */
-        if (autoFrame == 150)
+        /* title demo: snapshot once the title is up, then press ENTER */
+        if (autoFrame < 8)
+            KeyStatus[28] = KeyStatus[1] = 0;
+        if (autoFrame == 20)
             dumpVga("AUTO1.BIN");
-        if (autoFrame >= 180)
+        if (autoFrame >= 40)
             KeyStatus[28] = 1;
         if (autoFrame >= 186)
             KeyStatus[28] = 0;
@@ -79,7 +85,7 @@ static void autoTick(void)
         /* real game: snapshot early, then win via max objects
          * (poking the state directly — the cheat-key path spins
          * waiting for a release only the ISR could give). */
-        if (autoFrame == 30)
+        if (autoFrame == 10)
             dumpVga("AUTO2.BIN");
         if (autoFrame == 60) {
             DBG(("auto: setting objects=%d", prefs.maxObjs));
@@ -251,10 +257,8 @@ int main(int argc, char *argv[])
         DBG(("loop: engineInitGame"));
         engineInitGame();
         DBG(("loop: showTitle"));
-        if (g_auto) {
-            autoStage = 0;
+        if (g_auto)
             autoFrame = 0;
-        }
         i = showTitle();
         DBG(("loop: showTitle -> %d", i));
         if (i) {
@@ -296,6 +300,15 @@ static void showEnding(void)
     int w, h, d, k, i, x, y, j, ti = 0;
     DBG(("showEnding: enter"));
     DQBloadImage(3, 0, 0, "GFX\\ENDING.PCX", pal, &w, &h);
+    if (g_auto) {
+        DQBclearLayer(VIDEO);
+        DQBcopyLayer(3, 1);
+        xDQBsetPal(pal);
+        DQBcopyLayer(1, VIDEO);
+        dumpVga("AUTO4.BIN");
+        DBG(("showEnding: auto snapshot"));
+        return;
+    }
     DQBclearLayer(VIDEO);
     DQBpalOff();
     DQBcopyLayer(3, 1);
@@ -334,12 +347,11 @@ static void showEnding(void)
             DQBwait(1);
     }
 
-    while (xDQBinkey())
-        ;
     if (g_auto) {
-        /* no real keypress will ever come; snapshot and move on */
         dumpVga("AUTO4.BIN");
     } else {
+        while (xDQBinkey())
+            ;
         while (!xDQBinkey())
             ;
     }
@@ -361,11 +373,16 @@ static int showTitle(void)
     DQBclearLayer(VIDEO);
     DQBpalOff();
 
-    if (DQBloadImage(3, 0, 0, "GFX\\TITLE.PCX", pal, &w, &h)) {
-        DBG(("showTitle: TITLE.PCX load FAILED"));
-        DQBinitText();
-        DQBclose();
-        printf("ERROR!");
+    {
+        static char titlePath[] = "GFX\\TITLE.PCX";
+        int trc = DQBloadImage(3, 0, 0, titlePath, pal, &w, &h);
+        if (trc) {
+            DBG(("showTitle: TITLE.PCX load FAILED rc=%d", trc));
+        } else {
+            DBG(("showTitle: pal[0..5]=%d %d %d %d %d %d",
+                (unsigned char)pal[0], (unsigned char)pal[1], (unsigned char)pal[2],
+                (unsigned char)pal[3], (unsigned char)pal[4], (unsigned char)pal[5]));
+        }
     }
 
     if (!g_noSound)

@@ -22,6 +22,7 @@ alias NUMSOUNDS=_NumSounds
 alias _NUMSOUNDS=_NumSounds
 alias BASEADDR=_BaseAddr
 alias _BASEADDR=_BaseAddr
+alias IRQ=_IRQ
 alias PICORMASK=_PicORmask
 alias _PICORMASK=_PicORmask
 alias OLDIRQSEG=_OldIRQseg
