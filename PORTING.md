@@ -163,6 +163,13 @@
   no sound loading, no `DQBplaySound`, no `FMinit`/`FMload`/`FMstop`/
   `FMend`) — A/B runs with/without sound for the memory-corruption
   investigation. `DQBinit`'s voice count stays 11; only devices are off.
+- File logging: `src/debug.h` — `DBG(("fmt", args));` appends to
+  `LOG.TXT` (bin/, gitignored) prefixed with BIOS ticks + DGROUP DS,
+  flushed after every line; `dbgInit()` in `lala.c` starts a fresh log
+  per run. Self-healing: one reopen+retry if a write fails (a closed
+  DOS handle is itself evidence). First live samples: clean-exit runs
+  (tests) log complete trails; killed game runs stop the lala trail
+  around the tileset load — the corruption window's starting point.
 - Byte-compare behavior, not bytes: same maps (`MAP/LALA.MAP`), same
   physics constants, same SFX slots.
 - Deliberate non-goals: `DQBerror$` text fidelity, mouse/joystick/3D

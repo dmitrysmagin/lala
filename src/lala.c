@@ -5,6 +5,7 @@
 #include "directqb.h"
 #include "engine.h"
 #include "fmengine.h"
+#include "debug.h"
 
 /* Staging buffers: DQB string params must be DGROUP (literals/globals),
  * never stack. Title/ending art + palettes are used synchronously. */
@@ -23,6 +24,10 @@ int main(int argc, char *argv[])
 {
     int i, a;
 
+    /* File log first: everything below is traced to LOG.TXT. */
+    dbgInit();
+    DBG(("main: start argc=%d", argc));
+
     /* Debug switch: --no-sound shuts the SoundBlaster AND the AdLib
      * off completely (no DQBinstallSB/loadSound, no FMinit/FMload), so
      * the game can be run with/without sound while investigating
@@ -32,18 +37,23 @@ int main(int argc, char *argv[])
         if (strcmp(argv[a], "--no-sound") == 0)
             g_noSound = 1;
     }
-    if (g_noSound)
+    if (g_noSound) {
         printf("--no-sound: SoundBlaster + AdLib DISABLED\n");
+        DBG(("main: --no-sound ON"));
+    }
 
     if (!g_noSound) {
         printf("INITALIZING OPL3 LIBRARY\n");
         i = FMinit();
-        (void)i;
+        DBG(("FMinit -> %d", i));
+    } else {
+        DBG(("FMinit skipped (--no-sound)"));
     }
 
     /* Init DirectQB for 4 layers */
     printf("INITIALIZING DIRECTQB\n");
     i = DQBinit(5, 11, 0);
+    DBG(("DQBinit -> %d", i));
     if (i) {
         printf("DIRECTQB FATAL ERROR!\n");
         /* PRINT DQBerror$ (skipped: BC-compiled, see PORTING.md) */
@@ -53,6 +63,7 @@ int main(int argc, char *argv[])
     /* Load font */
     printf("LOADING FONT\n");
     i = xDQBloadFont("GFX\\LALA.FNT");
+    DBG(("loadFont -> %d", i));
     if (i)    {
         printf("ERROR LOADING FONT!\n");
         DQBclose();
@@ -62,9 +73,11 @@ int main(int argc, char *argv[])
     /* Install Soundblaster */
     if (g_noSound) {
         printf("SKIPPING SOUNDBLASTER + SOUNDS (--no-sound)\n");
+        DBG(("SB + sounds skipped (--no-sound)"));
     } else {
         printf("INSTALLING SOUNDBLASTER DRIVER\n");
         i = DQBinstallSB(0, 6, 11025, AUTO, AUTO, AUTO);
+        DBG(("installSB -> %d", i));
         if (i) {
             printf("ERROR SETTING UP SOUNDBLASTER!\n");
             DQBclose();
@@ -83,6 +96,7 @@ int main(int argc, char *argv[])
         i |= xDQBloadSound(7, "SFX\\PINCHE.WAV");
         i |= xDQBloadSound(9, "SFX\\AMBIENT1.WAV");
         i |= xDQBloadSound(10, "SFX\\AMBIENT2.WAV");
+        DBG(("loadSounds -> %d", i));
 
         if (i) {
             printf("ERROR LOADING SOUNDS!\n");
@@ -94,19 +108,27 @@ int main(int argc, char *argv[])
     /* Install keyboard */
     printf("INSTALLING KEYBOARD HANDLER\n");
     DQBinstallKeyboard();
+    DBG(("installKeyboard"));
 
     /* Init game */
     printf("INITIALIZING GAME\n");
 
+    DBG(("engineInitVals"));
     engineInitVals();
     /* engineLoadPrefs(0): QB copies prefsStore(0) into prefs; our
      * engineInitVals writes prefs directly, nothing to copy. */
+    DBG(("loadTileProperties"));
     engineLoadTileProperties();
+    DBG(("loadTileset"));
     engineLoadTileset();
+    DBG(("loadSpriteProperties"));
     engineLoadSpriteProperties();
+    DBG(("loadSpriteset"));
     engineLoadSpriteset();
+    DBG(("loadSpriteMapping"));
     engineLoadSpriteMapping();
 
+    DBG(("initVGA"));
     DQBfadeTo(0, 0, 0);
     DQBinitVGA();
 
@@ -118,6 +140,7 @@ int main(int argc, char *argv[])
      * wcl -k16384 stack directive (Watcom far heap is DOS-on-demand,
      * see PORTING.md §2) */
     i = DQBcreateBMap(1, 254, 255);
+    DBG(("createBMap -> %d", i));
 
     if (i) {
         DQBinitText();
@@ -127,6 +150,7 @@ int main(int argc, char *argv[])
     }
 
     i = xDQBloadBMap(1, "GFX\\LALA.BMA");
+    DBG(("loadBMap -> %d", i));
     if (i) {
         DQBinitText();
         printf("ERROR loading blender map\n");
@@ -137,13 +161,21 @@ int main(int argc, char *argv[])
     /* Loop */
     do {
         int r;
+        DBG(("loop: engineInitGame"));
         engineInitGame();
+        DBG(("loop: showTitle"));
         i = showTitle();
+        DBG(("loop: showTitle -> %d", i));
         if (i) {
             xDQBsetPal(prefs.pal);
+            DBG(("loop: engineDoGame(-1)"));
             r = engineDoGame(-1);
-            if (r == -1)
+            DBG(("loop: engineDoGame -> %d", r));
+            if (r == -1) {
+                DBG(("loop: showEnding"));
                 showEnding();
+                DBG(("loop: showEnding done"));
+            }
         }
     } while (i);
 
@@ -156,12 +188,14 @@ int main(int argc, char *argv[])
     if (!g_noSound)
         FMend();
 
+    DBG(("main: clean exit"));
     return 0;
 }
 
 static void showEnding(void)
 {
     int w, h, d, k, i, x, y, j, ti = 0;
+    DBG(("showEnding: enter"));
     DQBloadImage(3, 0, 0, "GFX\\ENDING.PCX", pal, &w, &h);
     DQBclearLayer(VIDEO);
     DQBpalOff();
@@ -212,16 +246,19 @@ static void showEnding(void)
         BeSilent();
     }
     DQBclearLayer(VIDEO);
+    DBG(("showEnding: done"));
 }
 
 static int showTitle(void)
 {
     /* QB's flag% param is unused (always runs the demo game); dropped. */
     int w, h, r;
+    DBG(("showTitle: enter"));
     DQBclearLayer(VIDEO);
     DQBpalOff();
 
     if (DQBloadImage(3, 0, 0, "GFX\\TITLE.PCX", pal, &w, &h)) {
+        DBG(("showTitle: TITLE.PCX load FAILED"));
         DQBinitText();
         DQBclose();
         printf("ERROR!");
@@ -239,5 +276,6 @@ static int showTitle(void)
 
     DQBclearLayer(VIDEO);
 
+    DBG(("showTitle: exit r=%d", r));
     return r;
 }

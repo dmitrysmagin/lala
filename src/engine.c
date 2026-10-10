@@ -7,6 +7,7 @@
 #include "directqb.h"
 #include "engine.h"
 #include "fmengine.h"
+#include "debug.h"
 
 TypePrefs prefs;
 TypePlayer player;
@@ -640,6 +641,7 @@ void engineMoveEnems(TypeEnems __far *enems, TypeTileLayers __far *buff, int nPa
                         player.vy = -(DQBshiftLeft(prefs.walkVxMax, 1));
                     /* Kill a bit */
                     player.lives--;
+                    DBG(("collide: lives=%d", player.lives));
                     if (!g_noSound) {
                         DQBplaySound(2, 4, 11025, ONCE);
                         DQBplaySound(8, 3, 11025, ONCE);
@@ -821,6 +823,7 @@ void engineMovePlayer(TypeTileLayers __far *buff, int __far *map)
             if (!g_noSound)
                 DQBplaySound(8, 3, 11025 + (rand() >> 5), ONCE);
             player.lives--;
+            DBG(("evil tile: lives=%d", player.lives));
             player.state = STATEFLICKER;
             player.ctState = 128;
         }
@@ -849,6 +852,12 @@ int engineDoGame(int flag)
     int frame, halfLife, subFrame;
     int w, h;
 
+    DBG(("DoGame: enter flag=%d", flag));
+    DBG(("DoGame: buff=%04X:%04X enems=%04X:%04X hot=%04X:%04X",
+        DBG_SEG(curScreenBuff), DBG_OFF(curScreenBuff),
+        DBG_SEG(enems), DBG_OFF(enems),
+        DBG_SEG(hotSpots), DBG_OFF(hotSpots)));
+
     player.gameOver = 0;
 
     hotSpotsTiles[1] = prefs.objectTile;
@@ -871,6 +880,7 @@ int engineDoGame(int flag)
             asset("GFX", prefs.backdropFile), prefs.pal, &w, &h);
     }
     map = engineMapLoad();
+    DBG(("DoGame: map=%04X:%04X", DBG_SEG(map), DBG_OFF(map)));
     engineLoadEnems(enems);
     engineLoadHotSpots(hotSpots);
     engineScreenPrepare(nPant, map, curScreenBuff, hotSpots);
@@ -938,6 +948,7 @@ int engineDoGame(int flag)
                 }
                 break;
             }
+            DBG(("DoGame: screen -> %d", nPant));
             engineScreenPrepare(nPant, map, curScreenBuff, hotSpots);
             /* Prepare background */
             DQBcopyLayer(3, 2);
@@ -1022,6 +1033,7 @@ int engineDoGame(int flag)
             break;
         }
         if (player.lives < 0) {
+            DBG(("DoGame: GAME OVER lives=%d", player.lives));
             res = -2;
             player.gameOver = -1;
             flag = 0;
@@ -1046,6 +1058,8 @@ int engineDoGame(int flag)
     ffree_nw(enems, (prefs.mapW * prefs.mapH) * ENEM_SLOTS * sizeof(TypeEnems));
     ffree_nw(hotSpots, prefs.mapW * prefs.mapH * sizeof(TypeHotSpots));
 
+    DBG(("DoGame: exit res=%d lives=%d objects=%d",
+        res, player.lives, player.objects));
     return res;
 }
 
