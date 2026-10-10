@@ -11,6 +11,10 @@
 TypePrefs prefs;
 TypePlayer player;
 
+/* --no-sound debug switch, defined here so every binary that links
+ * engine.c (game, test, musplay) gets the symbol; only lala.c sets it. */
+int g_noSound = 0;
+
 /* QB REDIMs tileProperties(59); the file holds 41 entries, rest stay 0. */
 TypeTileProperties tileProperties[60];
 
@@ -636,8 +640,10 @@ void engineMoveEnems(TypeEnems __far *enems, TypeTileLayers __far *buff, int nPa
                         player.vy = -(DQBshiftLeft(prefs.walkVxMax, 1));
                     /* Kill a bit */
                     player.lives--;
-                    DQBplaySound(2, 4, 11025, ONCE);
-                    DQBplaySound(8, 3, 11025, ONCE);
+                    if (!g_noSound) {
+                        DQBplaySound(2, 4, 11025, ONCE);
+                        DQBplaySound(8, 3, 11025, ONCE);
+                    }
                 }
             }
 
@@ -707,7 +713,8 @@ void engineMovePlayer(TypeTileLayers __far *buff, int __far *map)
                  ((x & 15) != 0 && buff[cToIdx(xx + 1, yy + 1)].behaviour > 3))) {
                 player.jumping = -1;
                 player.ctJump = 0;
-                DQBplaySound(3, 1, 11025 + (rand() >> 5), ONCE);
+                if (!g_noSound)
+                    DQBplaySound(3, 1, 11025 + (rand() >> 5), ONCE);
                 player.x = DQBshiftLeft(x, 6);
             }
         }
@@ -798,7 +805,8 @@ void engineMovePlayer(TypeTileLayers __far *buff, int __far *map)
             res = engineDetectKeyHole(buff, map, xx + 1, yy);
         if (res) {
             player.keys--;
-            DQBplaySound(1, 2, 11025, ONCE);
+            if (!g_noSound)
+                DQBplaySound(1, 2, 11025, ONCE);
         }
     }
 
@@ -807,9 +815,11 @@ void engineMovePlayer(TypeTileLayers __far *buff, int __far *map)
         ((x & 15) != 0 && buff[cToIdx(xx + 1, yy)].behaviour == 1) ||
         ((y & 15) != 0 && buff[cToIdx(xx, yy + 1)].behaviour == 1) ||
         ((x & 15) != 0 && (y & 15) != 0 && buff[cToIdx(xx + 1, yy + 1)].behaviour == 1)) {
-        DQBplaySound(7, 4, 11025, ONCE);
+        if (!g_noSound)
+            DQBplaySound(7, 4, 11025, ONCE);
         if (player.state == STATENORMAL) {
-            DQBplaySound(8, 3, 11025 + (rand() >> 5), ONCE);
+            if (!g_noSound)
+                DQBplaySound(8, 3, 11025 + (rand() >> 5), ONCE);
             player.lives--;
             player.state = STATEFLICKER;
             player.ctState = 128;
@@ -869,7 +879,7 @@ int engineDoGame(int flag)
     halfLife = 0;
     subFrame = 0;
 
-    if (flag) {
+    if (flag && !g_noSound) {
         /* ambient */
         if (prefs.bgL1)
             DQBplaySound(prefs.bgL1, 5, 11025, LOOPED);
@@ -942,15 +952,18 @@ int engineDoGame(int flag)
             switch (hotSpots[nPant].t) {
             case 1:
                 player.objects++;
-                DQBplaySound(6, 4, 11025, ONCE);
+                if (!g_noSound)
+                    DQBplaySound(6, 4, 11025, ONCE);
                 break;
             case 2:
                 player.keys++;
-                DQBplaySound(4, 4, 11025, ONCE);
+                if (!g_noSound)
+                    DQBplaySound(4, 4, 11025, ONCE);
                 break;
             case 3:
                 player.lives += prefs.refill;
-                DQBplaySound(5, 4, 11025, ONCE);
+                if (!g_noSound)
+                    DQBplaySound(5, 4, 11025, ONCE);
                 break;
             }
             prefs.hotSpotX = 999;
@@ -1021,11 +1034,12 @@ int engineDoGame(int flag)
     }
 
     /* PLAY STOP */
-    FMstop();
-    BeSilent();
-
-    DQBstopVoice(5);
-    DQBstopVoice(6);
+    if (!g_noSound) {
+        FMstop();
+        BeSilent();
+        DQBstopVoice(5);
+        DQBstopVoice(6);
+    }
 
     ffree_nw(curScreenBuff, SBUFF_ENTRIES * sizeof(TypeTileLayers));
     ffree_nw(map, prefs.mapW * prefs.mapH * prefs.screenW * prefs.screenH * sizeof(int));

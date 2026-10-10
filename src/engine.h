@@ -139,6 +139,11 @@ typedef struct {
 /* Shared game state (QB DIM SHARED / globals). */
 extern TypePrefs prefs;
 extern TypePlayer player;
+/* --no-sound debug switch (lala.c parses argv): 1 = SoundBlaster and
+ * AdLib fully disabled (no SB install/load/play, no FM init/load) so
+ * runs with and without sound can be A/B-tested against memory
+ * corruption. Default 0 = normal sound. */
+extern int g_noSound;
 extern TypeTileProperties tileProperties[60];
 extern char __far *tileset[240];
 extern char __far *spriteset[21];

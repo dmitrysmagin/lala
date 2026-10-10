@@ -19,13 +19,27 @@ static const char *endingText[8] = {
 static void showEnding(void);
 static int showTitle(void);
 
-int main(void)
+int main(int argc, char *argv[])
 {
-    int i;
+    int i, a;
 
-    printf("INITALIZING OPL3 LIBRARY\n");
-    i = FMinit();
-    (void)i;
+    /* Debug switch: --no-sound shuts the SoundBlaster AND the AdLib
+     * off completely (no DQBinstallSB/loadSound, no FMinit/FMload), so
+     * the game can be run with/without sound while investigating
+     * memory corruption. DQBinit's voice count stays 11 — only the
+     * devices are disabled. */
+    for (a = 1; a < argc; a++) {
+        if (strcmp(argv[a], "--no-sound") == 0)
+            g_noSound = 1;
+    }
+    if (g_noSound)
+        printf("--no-sound: SoundBlaster + AdLib DISABLED\n");
+
+    if (!g_noSound) {
+        printf("INITALIZING OPL3 LIBRARY\n");
+        i = FMinit();
+        (void)i;
+    }
 
     /* Init DirectQB for 4 layers */
     printf("INITIALIZING DIRECTQB\n");
@@ -46,31 +60,35 @@ int main(void)
     }
 
     /* Install Soundblaster */
-    printf("INSTALLING SOUNDBLASTER DRIVER\n");
-    i = DQBinstallSB(0, 6, 11025, AUTO, AUTO, AUTO);
-    if (i) {
-        printf("ERROR SETTING UP SOUNDBLASTER!\n");
-        DQBclose();
-        exit(1);
-    }
+    if (g_noSound) {
+        printf("SKIPPING SOUNDBLASTER + SOUNDS (--no-sound)\n");
+    } else {
+        printf("INSTALLING SOUNDBLASTER DRIVER\n");
+        i = DQBinstallSB(0, 6, 11025, AUTO, AUTO, AUTO);
+        if (i) {
+            printf("ERROR SETTING UP SOUNDBLASTER!\n");
+            DQBclose();
+            exit(1);
+        }
 
-    /* Load sounds */
-    printf("LOADING SOUNDS\n");
-    i = xDQBloadSound(8, "SFX\\AH.WAV");
-    i |= xDQBloadSound(1, "SFX\\BOLT.WAV");
-    i |= xDQBloadSound(2, "SFX\\HIT.WAV");
-    i |= xDQBloadSound(3, "SFX\\JUMP.WAV");
-    i |= xDQBloadSound(4, "SFX\\KEY.WAV");
-    i |= xDQBloadSound(5, "SFX\\LIFE.WAV");
-    i |= xDQBloadSound(6, "SFX\\OBJECT.WAV");
-    i |= xDQBloadSound(7, "SFX\\PINCHE.WAV");
-    i |= xDQBloadSound(9, "SFX\\AMBIENT1.WAV");
-    i |= xDQBloadSound(10, "SFX\\AMBIENT2.WAV");
+        /* Load sounds */
+        printf("LOADING SOUNDS\n");
+        i = xDQBloadSound(8, "SFX\\AH.WAV");
+        i |= xDQBloadSound(1, "SFX\\BOLT.WAV");
+        i |= xDQBloadSound(2, "SFX\\HIT.WAV");
+        i |= xDQBloadSound(3, "SFX\\JUMP.WAV");
+        i |= xDQBloadSound(4, "SFX\\KEY.WAV");
+        i |= xDQBloadSound(5, "SFX\\LIFE.WAV");
+        i |= xDQBloadSound(6, "SFX\\OBJECT.WAV");
+        i |= xDQBloadSound(7, "SFX\\PINCHE.WAV");
+        i |= xDQBloadSound(9, "SFX\\AMBIENT1.WAV");
+        i |= xDQBloadSound(10, "SFX\\AMBIENT2.WAV");
 
-    if (i) {
-        printf("ERROR LOADING SOUNDS!\n");
-        DQBclose();
-        exit(1);
+        if (i) {
+            printf("ERROR LOADING SOUNDS!\n");
+            DQBclose();
+            exit(1);
+        }
     }
 
     /* Install keyboard */
@@ -133,7 +151,10 @@ int main(void)
     DQBremoveKeyboard();
     DQBclose();
 
-    FMend();
+    /* FMend restores the PIT hook FMinit installed — never call it
+     * when FMinit was skipped (--no-sound), it would scribble the IVT. */
+    if (!g_noSound)
+        FMend();
 
     return 0;
 }
@@ -145,7 +166,8 @@ static void showEnding(void)
     DQBclearLayer(VIDEO);
     DQBpalOff();
     DQBcopyLayer(3, 1);
-    FMload("MUSIC\\MC12.S3M");
+    if (!g_noSound)
+        FMload("MUSIC\\MC12.S3M");
     xDQBsetPal(pal);
 
     DQBcopyLayer(1, VIDEO);
@@ -185,8 +207,10 @@ static void showEnding(void)
         ;
 
     /* PLAY STOP */
-    FMstop();
-    BeSilent();
+    if (!g_noSound) {
+        FMstop();
+        BeSilent();
+    }
     DQBclearLayer(VIDEO);
 }
 
@@ -203,12 +227,15 @@ static int showTitle(void)
         printf("ERROR!");
     }
 
-    FMload("MUSIC\\G66A.S3M");
+    if (!g_noSound)
+        FMload("MUSIC\\G66A.S3M");
     xDQBsetPal(pal);
     r = engineDoGame(0);
     /* PLAY STOP */
-    FMstop();
-    BeSilent();
+    if (!g_noSound) {
+        FMstop();
+        BeSilent();
+    }
 
     DQBclearLayer(VIDEO);
 

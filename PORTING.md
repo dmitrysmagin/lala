@@ -158,6 +158,11 @@
   `bin\musplay.exe`. The game binary stays lean (test code would blow
   the ~64K image ceiling — see quirks appendix).
 - `SETMEM(-513)` closed via `wcl -k16384` (§2).
+- Debug flag: `lala.exe --no-sound` shuts the SoundBlaster AND the
+  AdLib off completely (`g_noSound` in `engine.c`: no `DQBinstallSB`,
+  no sound loading, no `DQBplaySound`, no `FMinit`/`FMload`/`FMstop`/
+  `FMend`) — A/B runs with/without sound for the memory-corruption
+  investigation. `DQBinit`'s voice count stays 11; only devices are off.
 - Byte-compare behavior, not bytes: same maps (`MAP/LALA.MAP`), same
   physics constants, same SFX slots.
 - Deliberate non-goals: `DQBerror$` text fidelity, mouse/joystick/3D
