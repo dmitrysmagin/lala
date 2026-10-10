@@ -1,24 +1,7 @@
-/* sound.c — WAV load into EMS + play stubs (P4; SB IRQ mixer TBD). */
+/* sound.c — WAV load into EMS (C); SB IRQ mixer in sound_drv.asm. */
 #include "dqb_int.h"
 #include <stdio.h>
 #include <string.h>
-
-int DQBAPI DQBinstallSB(int volActive, int channels, int freq, int baseAddr, int irq, int dma)
-{
-    (void)volActive;
-    (void)channels;
-    (void)freq;
-    (void)baseAddr;
-    (void)irq;
-    (void)dma;
-    SoundActive = 1;
-    return 0;
-}
-
-void DQBAPI DQBremoveSB(void)
-{
-    SoundActive = 0;
-}
 
 int DQBAPI xDQBloadSound(int slot, char __far *file)
 {
@@ -70,17 +53,4 @@ int DQBAPI xDQBloadSound(int slot, char __far *file)
     fclose(f);
     dqb_unhook_int24();
     return (n == dataLen) ? 0 : 2;
-}
-
-void DQBAPI DQBplaySound(int soundNum, int voice, int freq, int loopFlag)
-{
-    (void)soundNum;
-    (void)voice;
-    (void)freq;
-    (void)loopFlag;
-}
-
-void DQBAPI DQBstopVoice(int voice)
-{
-    (void)voice;
 }

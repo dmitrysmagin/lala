@@ -38,9 +38,3 @@ unsigned short OldIRQseg;
 unsigned short OldIRQoff;
 unsigned short OldInt24seg, OldInt24off;
 unsigned char LastError = 29;
-
-unsigned char DMA = 1;
-unsigned char PicANDmask;
-unsigned short DMA_Page, DMA_Base, DMA_Count;
-unsigned short SamplingRate = 22050;
-unsigned short Channels = 8;

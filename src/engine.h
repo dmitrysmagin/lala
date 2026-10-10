@@ -154,7 +154,6 @@ extern int spriteMapping[64];
 extern TypeSpriteProperties spriteProperties[64];
 
 /* engine.c */
-void engineReadPcxPal(char *pal768, const char *pcxPath);
 void engineInitVals(void);
 void engineLoadTileProperties(void);
 void engineLoadTileset(void);

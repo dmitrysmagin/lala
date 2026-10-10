@@ -1,4 +1,4 @@
-# DirectQB C port (P0–P4)
+# DirectQB C port
 
 Watcom C reimplementation of the game-used DirectQB modules under `src/dqb/`, replacing `dqb/dqb.lib` in the default build.
 
@@ -15,18 +15,35 @@ src/dqb/
   palette.c            P1: setPal, fadeTo, palOff
   draw.c               P2: put, get, box, setTransPut
   blending.c           P2: filterBox, createBMap, loadBMap
-  font.c               P3: loadFont, xDQBprint (style 0)
-  image.c              P3: PCX load + palette from file tail
+  font.c               P3: loadFont, xDQBprint, DQBprint (style 0)
+  image.c              P3: PCX load + palette from file tail, DQBloadImage
   keyboard.c           P4: install/remove, DQBkey, xDQBinkey, INT 9 ISR
-  sound.c              P4: install/remove, load WAV → EMS; play stubbed
+  sound.c              WAV load into EMS (`xDQBloadSound`, C far-string ABI)
+  sound_drv.asm        P6: DirectQB SOUND.ASM (IRQ mixer, install/play/stop)
+  dqb_alias.lnk        Linker aliases (ASM extern names ↔ C `_Foo` globals)
 ```
 
-Game-facing headers unchanged in spirit: `src/directqb.h` includes `src/dqb/dqb.h`; `src/directqb.c` keeps `DQBloadImage` / `DQBprint` wrappers.
+## P5 — cutover (done)
+
+- **Single API header:** `src/dqb/dqb.h`. `src/directqb.h` is a one-line include shim for existing `#include "directqb.h"`.
+- **Wrappers in-library:** `DQBloadImage` / `DQBprint` live in `image.c` and `font.c`; **`src/directqb.c` removed** from the build.
+- **No PCX palette workaround:** `engineReadPcxPal()` removed from `engine.c` / `engine.h`; title, ending, backdrop, and tileset rely on `image.c` tail palette read only.
+- **Orphan link experiments removed:** `wlink.lnk`, `aliases.asm`, `keystatus.asm`.
+
+## P6 — Sound Blaster mixer (done)
+
+- **`src/dqb/sound_drv.asm`:** Copy of `dqb/SOUND.ASM` with `xDQBloadSound` disabled (`IF 0`); mixer/install/play/stop come from ASM.
+- **`src/dqb/sound.c`:** Keeps **`xDQBloadSound` only** (stdio RIFF/WAVE → EMS); avoids QB seg/off loader ABI mismatch.
+- **`src/dqb/dqb_alias.lnk`:** Passed to `wcl` as `@src\dqb\dqb_alias.lnk` so Watcom ASM uppercase externs resolve to C globals (`_LastError`, `_MapEMS`, …). **`WATCOM` must be set** (see `build.bat`) or the linker pass fails.
+- **`globals.c`:** Sound-only DMA/mixer locals live in `sound_drv.asm` `.DATA` (removed duplicate `DMA` / `Channels` from C).
+- **Build:** `dqb\obj\SOUND_DRV.obj` from `wasm`; linked into `lala.exe`, `test.exe`, `musplay.exe`.
+
+DOSBox: `ems=true`; set **`BLASTER`** (or pass explicit port/IRQ/DMA to `DQBinstallSB`) for SB playback.
 
 ## Build
 
-- **Default:** `wmake` / `build.bat` links `GAMESRCS` + all `src/dqb/*.c` (no `dqb/dqb.lib`).
-- **Include path:** `-i=src` on `CFLAGS` so `#include "dqb/dqb.h"` resolves.
+- **Default:** `wmake` / `build.bat` links `GAMESRCS` + all `src/dqb/*.c` + `SOUND_DRV.obj` (no `dqb/dqb.lib`, no `directqb.c`).
+- **Include path:** `-i=src` on `CFLAGS`.
 - **Legacy ASM library:** `wmake dqblib` still builds `dqb/dqb.lib` from `dqb/*.ASM` for reference or rollback.
 
 ## Phase coverage (game scope)
@@ -36,52 +53,34 @@ Game-facing headers unchanged in spirit: `src/directqb.h` includes `src/dqb/dqb.
 | P0 | MAIN (core) | EMS init, layer copy/clear, VGA 320×200, text mode |
 | P1 | BIT, PALETTE (subset) | Bit ops; full-palette set/fade/off |
 | P2 | DRAW, BLENDING (subset) | Sprites, box, filter box, blender maps |
-| P3 | FONT, IMAGE (PCX) | Font file; PCX decode; **768-byte palette from last 769 bytes of file** |
-| P4 | KEYBOARD, SOUND (partial) | Keyboard complete in C; **sound load only** |
+| P3 | FONT, IMAGE (PCX) | Font file; PCX decode; palette from file tail |
+| P4 | KEYBOARD, SOUND (partial) | Keyboard in C; WAV load in C |
+| P5 | — | Game cutover, header/wrapper cleanup |
+| P6 | SOUND (mixer) | `sound_drv.asm` + `dqb_alias.lnk`; load stays in `sound.c` |
 
-Not ported in this cutover: SPRITE extras, DISK, DATAFILE, MOUSE, JOYSTICK, THREED, and most unused DQB entry points.
+Not ported: SPRITE extras, DISK, DATAFILE, MOUSE, JOYSTICK, THREED, and most unused DQB entry points.
 
 ## PCX palette
 
-Original DQB PCX decode could run past the palette block and leave caller buffers zero. `image.c` reloads palette from the PCX tail (`0x0C` + 768 bytes, VGA `>> 2`), matching the workaround in `engineReadPcxPal()` in `src/engine.c`.
-
-After verifying title/backdrop/tileset in DOSBox, remove `engineReadPcxPal` calls from `engine.c` and `lala.c`.
-
-## Sound (P4 gap)
-
-- **`xDQBloadSound`:** Reads RIFF/WAVE payload into EMS at the slot page (simplified parser).
-- **`DQBinstallSB` / `DQBplaySound` / `DQBstopVoice`:** Stubs — no Sound Blaster IRQ/DMA mixer yet; game runs but SFX/ambient will not audibly play until `dqb/SOUND.ASM` is re-linked (with C↔ASM symbol aliases) or the mixer is ported to C.
+`image.c` reads the 768-byte VGA palette from the PCX tail (`0x0C` + 768 bytes, each component `>> 2`). No engine-side reload.
 
 ## Keyboard / KeyStatus
 
-- `KeyStatus[128]` lives in `globals.c` as a normal C symbol (`_KeyStatus`).
-- Tests and `--autoplay` poke `KeyStatus` directly (`tests/engtest.c`, `src/lala.c`).
-- Old `#pragma aux KeyStatus "KEYSTATUS"` was dropped; engtest uses the same `KeyStatus` name via `directqb.h`.
+- `KeyStatus[128]` in `globals.c` (`_KeyStatus` at link time).
+- Tests and `--autoplay` poke `KeyStatus` directly.
 
 ## Calling convention
 
-Exported game APIs use `__far __pascal` (`DQBAPI` in `dqb.h`), same as the previous `directqb.h` bindings.
-
-Internal ASM-compatible names for a future `SOUND.OBJ` link were prepared (`_MapEMS`, `_ReadBuffer`, etc. in `core_io.c`); a working `wlink` alias file was not finalized — full SB link remains TODO.
-
-## Orphan / optional cleanup
-
-These were experiments and are **not** used by the current build:
-
-- `src/dqb/wlink.lnk`
-- `src/dqb/aliases.asm`
-- `src/dqb/keystatus.asm`
-
-Safe to delete when no longer needed.
+- DQB exports: `__far __pascal` (`DQBAPI` in `dqb.h`).
+- **`DQBloadImage` / `DQBprint`:** cdecl (same as the old `directqb.c` wrappers).
 
 ## Verification checklist
 
 1. `build.bat` → `bin/lala.exe`, `bin/test.exe`, `bin/musplay.exe`.
-2. `bin/test.exe test` (engtest + scripted `KeyStatus`).
-3. DOSBox: title screen palette (`GFX\TITLE.PCX`), in-game backdrop/tileset, one playthrough.
-4. Confirm `LOG.TXT` / visuals without relying on `engineReadPcxPal`.
-5. Re-enable audio: port or link `SOUND.ASM`, then exercise SFX slots 1–10 and looped ambient on voices 5–6.
+2. `bin/test.exe test`.
+3. DOSBox: title, backdrop, tileset palettes; short playthrough.
+4. DOSBox audio: `BLASTER` env, SFX + looped ambient (`DQBinstallSB(0, 6, 11025, AUTO, AUTO, AUTO)` in `lala.c`).
 
 ## Constraints
 
-See `PORTING.md`: ~64K code+DGROUP ceiling; watch exe size after the C DQB replace. Stack remains `-k16384` on `wcl`.
+See `PORTING.md`: ~64K code+DGROUP ceiling; stack `-k16384` on `wcl`.

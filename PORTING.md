@@ -69,18 +69,18 @@
   data fixups ⇒ keep (CODE + early DGROUP) under ~64K (currently
   ~57K with engtest; the shipped game without engtest is smaller).
 
-## 3. `directqb.h/.c` binding layer — DONE (wrappers removed)
+## 3. DirectQB API — C port (`src/dqb/`), P5 cutover
 
-- `src/directqb.h` declares every used entry point directly with
-  `extern __far __pascal` in CamelCase. `__pascal` uppercases the
-  symbol, so e.g. `DQBinit` here IS `DQBINIT` in the lib (proven at
-  obj level via `wdis`: `call DQBINIT`). No wrappers, no pragmas.
-- Only two thin wrappers stay in `src/directqb.c` (real added value):
-  `DQBloadImage` stages stack int locals through DGROUP statics
-  (`xDQBloadImage` stores imgW/imgH through DS), and `DQBprint`
-  supplies `style = 0`. Call sites using old wrapper names
-  (`DQBloadFont/Sound/BMap/SetPal/Inkey`) were renamed to the lib's
-  `xDQB…` names.
+- Default build links **`src/dqb/*.c`**, not `dqb/dqb.lib`. See
+  **`DQB-PORTING.md`** for module map and remaining gaps (sound playback).
+- `src/dqb/dqb.h` declares game entry points (`__far __pascal` / `DQBAPI`).
+  `src/directqb.h` is a compatibility shim: `#include "dqb/dqb.h"`.
+- `DQBloadImage` / `DQBprint` (cdecl) live in `image.c` / `font.c`; there
+  is no `directqb.c`. PCX palettes come from `image.c` only (no
+  `engineReadPcxPal`). Legacy `wmake dqblib` still rebuilds ASM for reference.
+- Historical (ASM lib): `__pascal` uppercases symbols (`DQBinit` → `DQBINIT`).
+  Call sites using wrapper names (`DQBloadFont/Sound/BMap/SetPal/Inkey`) use
+  the lib's `xDQB…` names.
 - Far-pointer params take literals/DGROUP buffers straight through:
   the compiler materializes near→far with `push ds` + DGROUP offset.
 - Verified: `lala.exe test` → **ENGTEST: PASS 121/121** with zero

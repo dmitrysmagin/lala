@@ -45,32 +45,6 @@ static const char *asset(const char *dir, const char *file)
     return assetPath;
 }
 
-/* DQB's PCX path often leaves the palette buffer zeroed (decode runs the
- * file past the 768-byte VGA palette block). Reload from the PCX tail. */
-void engineReadPcxPal(char *pal768, const char *pcxPath)
-{
-    unsigned char block[769];
-    FILE *f;
-    int i;
-
-    f = fopen(pcxPath, "rb");
-    if (!f)
-        return;
-    if (fseek(f, -769L, SEEK_END) != 0) {
-        fclose(f);
-        return;
-    }
-    if (fread(block, 1, 769, f) != 769) {
-        fclose(f);
-        return;
-    }
-    fclose(f);
-    if (block[0] != 0x0C)
-        return;
-    for (i = 0; i < 768; i++)
-        pal768[i] = (char)(block[i + 1] >> 2);
-}
-
 /* QB INPUT# numeric item reader: ints separated by commas, spaces,
  * tabs or newlines, optional leading '-'. Mirrors what the TXT files
  * hold (see MAP and GFX folders). */
@@ -909,7 +883,6 @@ int engineDoGame(int flag)
         DQBclearLayer(3);
         DQBloadImage(3, prefs.screenPos.x, prefs.screenPos.y,
             asset("GFX", prefs.backdropFile), prefs.pal, &w, &h);
-        engineReadPcxPal(prefs.pal, asset("GFX", prefs.backdropFile));
         DBG(("DoGame: backdrop pal[0..5]=%d %d %d %d %d %d",
             prefs.pal[0], prefs.pal[1], prefs.pal[2],
             prefs.pal[3], prefs.pal[4], prefs.pal[5]));
@@ -1106,7 +1079,6 @@ void engineLoadTileset()
     int i, w, h, x, y;
 
     i = DQBloadImage(3, 0, 0, asset("GFX", prefs.tilesetFile), prefs.pal, &w, &h);
-    engineReadPcxPal(prefs.pal, asset("GFX", prefs.tilesetFile));
 
     x = 0; y = 0;
     

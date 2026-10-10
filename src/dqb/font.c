@@ -53,3 +53,8 @@ void DQBAPI xDQBprint(int layer, char __far *text, int x, int y, int col, int st
         cx += cw;
     }
 }
+
+void DQBprint(int layer, const char __far *text, int x, int y, int col)
+{
+    xDQBprint(layer, (char __far *)text, x, y, col, 0);
+}

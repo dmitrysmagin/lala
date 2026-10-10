@@ -107,3 +107,10 @@ int DQBAPI xDQBloadImage(int layer, int x, int y, char __far *file,
     dqb_unhook_int24();
     return 3;
 }
+
+int DQBloadImage(int layer, int x, int y, const char __far *file, void __far *pal,
+    int *imgW, int *imgH)
+{
+    return xDQBloadImage(layer, x, y, (char __far *)file, (char __far *)pal,
+        (int __near *)imgW, (int __near *)imgH);
+}

@@ -296,7 +296,6 @@ static void showEnding(void)
     int w, h, d, k, i, x, y, j, ti = 0;
     DBG(("showEnding: enter"));
     DQBloadImage(3, 0, 0, "GFX\\ENDING.PCX", pal, &w, &h);
-    engineReadPcxPal(pal, "GFX\\ENDING.PCX");
     DQBclearLayer(VIDEO);
     DQBpalOff();
     DQBcopyLayer(3, 1);
@@ -368,7 +367,6 @@ static int showTitle(void)
         DQBclose();
         printf("ERROR!");
     }
-    engineReadPcxPal(pal, "GFX\\TITLE.PCX");
 
     if (!g_noSound)
         FMload("MUSIC\\G66A.S3M");
