@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <i86.h>
+#include <conio.h>
 
 #include "directqb.h"
 #include "engine.h"
@@ -20,6 +22,83 @@ static const char *endingText[8] = {
 static void showEnding(void);
 static int showTitle(void);
 
+/* ---- --autoplay debug harness (see PORTING.md) --------------------
+ * Drives the whole game without a keyboard: engineDoGame's frame loop
+ * calls autoTick() per frame (hook in engine.c); it pokes KeyStatus
+ * (DQBkey AND xDQBinkey read it directly) and game state, and dumps
+ * the VGA framebuffer + DAC at stage milestones to AUTO*.BIN. */
+static int g_auto = 0;
+static int autoStage;   /* 0 = title demo, 1 = game, 2 = quit demo */
+static int autoFrame;
+
+/* 320x200 VGA memory + 768 DAC bytes into one file. */
+static void dumpVga(const char *fn)
+{
+    static unsigned char chunk[4000];
+    static unsigned char dac[768];
+    unsigned char __far *vga = (unsigned char __far *)MK_FP(0xA000, 0);
+    unsigned long off;
+    unsigned i;
+    FILE *f = fopen(fn, "wb");
+    if (!f)
+        return;
+    for (off = 0; off < 64000UL; off += 4000UL) {
+        for (i = 0; i < 4000; i++)
+            chunk[i] = vga[off + i];
+        fwrite(chunk, 1, 4000, f);
+    }
+    fclose(f);
+    /* append the DAC so the dump is renderable end-to-end */
+    f = fopen(fn, "ab");
+    if (!f)
+        return;
+    for (i = 0; i < 256; i++) {
+        outp(0x3C7, i);
+        dac[i * 3] = (unsigned char)inp(0x3C9);
+        dac[i * 3 + 1] = (unsigned char)inp(0x3C9);
+        dac[i * 3 + 2] = (unsigned char)inp(0x3C9);
+    }
+    fwrite(dac, 1, 768, f);
+    fclose(f);
+    DBG(("auto: dumped %s", fn));
+}
+
+static void autoTick(void)
+{
+    switch (autoStage) {
+    case 0:
+        /* title demo: let it run, snapshot, then press ENTER */
+        if (autoFrame == 150)
+            dumpVga("AUTO1.BIN");
+        if (autoFrame >= 180)
+            KeyStatus[28] = 1;
+        if (autoFrame >= 186)
+            KeyStatus[28] = 0;
+        break;
+    case 1:
+        /* real game: snapshot early, then win via max objects
+         * (poking the state directly — the cheat-key path spins
+         * waiting for a release only the ISR could give). */
+        if (autoFrame == 30)
+            dumpVga("AUTO2.BIN");
+        if (autoFrame == 60) {
+            DBG(("auto: setting objects=%d", prefs.maxObjs));
+            player.objects = prefs.maxObjs;
+        }
+        break;
+    case 2:
+        /* second title demo: snapshot, then ESC out for clean exit */
+        if (autoFrame == 40)
+            dumpVga("AUTO3.BIN");
+        if (autoFrame >= 60)
+            KeyStatus[1] = 1;
+        if (autoFrame >= 66)
+            KeyStatus[1] = 0;
+        break;
+    }
+    autoFrame++;
+}
+
 int main(int argc, char *argv[])
 {
     int i, a;
@@ -36,10 +115,18 @@ int main(int argc, char *argv[])
     for (a = 1; a < argc; a++) {
         if (strcmp(argv[a], "--no-sound") == 0)
             g_noSound = 1;
+        if (strcmp(argv[a], "--autoplay") == 0) {
+            g_auto = 1;
+            g_autoTick = autoTick;
+        }
     }
     if (g_noSound) {
         printf("--no-sound: SoundBlaster + AdLib DISABLED\n");
         DBG(("main: --no-sound ON"));
+    }
+    if (g_auto) {
+        printf("--autoplay: scripted input, AUTO*.BIN dumps\n");
+        DBG(("main: --autoplay ON"));
     }
 
     if (!g_noSound) {
@@ -164,13 +251,25 @@ int main(int argc, char *argv[])
         DBG(("loop: engineInitGame"));
         engineInitGame();
         DBG(("loop: showTitle"));
+        if (g_auto) {
+            autoStage = 0;
+            autoFrame = 0;
+        }
         i = showTitle();
         DBG(("loop: showTitle -> %d", i));
         if (i) {
             xDQBsetPal(prefs.pal);
             DBG(("loop: engineDoGame(-1)"));
+            if (g_auto) {
+                autoStage = 1;
+                autoFrame = 0;
+            }
             r = engineDoGame(-1);
             DBG(("loop: engineDoGame -> %d", r));
+            if (g_auto) {
+                autoStage = 2;
+                autoFrame = 0;
+            }
             if (r == -1) {
                 DBG(("loop: showEnding"));
                 showEnding();
@@ -197,6 +296,7 @@ static void showEnding(void)
     int w, h, d, k, i, x, y, j, ti = 0;
     DBG(("showEnding: enter"));
     DQBloadImage(3, 0, 0, "GFX\\ENDING.PCX", pal, &w, &h);
+    engineReadPcxPal(pal, "GFX\\ENDING.PCX");
     DQBclearLayer(VIDEO);
     DQBpalOff();
     DQBcopyLayer(3, 1);
@@ -237,8 +337,13 @@ static void showEnding(void)
 
     while (xDQBinkey())
         ;
-    while (!xDQBinkey())
-        ;
+    if (g_auto) {
+        /* no real keypress will ever come; snapshot and move on */
+        dumpVga("AUTO4.BIN");
+    } else {
+        while (!xDQBinkey())
+            ;
+    }
 
     /* PLAY STOP */
     if (!g_noSound) {
@@ -263,6 +368,7 @@ static int showTitle(void)
         DQBclose();
         printf("ERROR!");
     }
+    engineReadPcxPal(pal, "GFX\\TITLE.PCX");
 
     if (!g_noSound)
         FMload("MUSIC\\G66A.S3M");

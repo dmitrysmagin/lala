@@ -71,7 +71,13 @@ extern int __far __pascal DQBreadBit(int value, int bit);
 
 /* Two thin wrappers stay in directqb.c (real added value only):
  * DQBloadImage stages stack int locals through DGROUP statics;
- * DQBprint supplies style = 0 (DQBprints is unused by the game). */
+ * DQBprint supplies style = 0 (DQBprints is unused by the game).
+ *
+ * Callers must pass every arg on the stack (pragma below) so nested
+ * __pascal DQB calls get the IMAGE.ASM stack layout. */
+#pragma aux DQBloadImage parm caller [];
+#pragma aux DQBprint parm caller [];
+
 int DQBloadImage(int layer, int x, int y, const char __far *file, void __far *pal, int *imgW, int *imgH);
 void DQBprint(int layer, const char __far *text, int x, int y, int col);
 

@@ -28,8 +28,12 @@
 #define DBG_SEG(p) ((unsigned)((unsigned long)(void __far *)(p) >> 16))
 #define DBG_OFF(p) ((unsigned)((unsigned long)(void __far *)(p)))
 
-static FILE *dbgF = 0;    /* this translation unit's handle */
-
+/* dbgLog: one fopen + fclose PER LINE. Opening and closing for every
+ * line is slow, but these events are rare -- and it is the only way to
+ * make the trail kill-proof: DOSBox flushes its host buffers on close,
+ * so every returned call is already durable when the game later hangs
+ * or is killed. A closed/stolen DOS handle can only eat the single
+ * in-flight line, never the whole session (and each call re-opens). */
 static unsigned long dbgTick(void)
 {
     /* BIOS tick counter at 0040:006C, ~18.2 Hz. */
@@ -39,41 +43,21 @@ static unsigned long dbgTick(void)
 static void dbgLog(const char *fmt, ...)
 {
     va_list ap;
-    int ok, retried = 0;
-
-    for (;;) {
-        if (!dbgF)
-            dbgF = fopen("LOG.TXT", "at");
-        if (!dbgF)
-            return;
-        fprintf(dbgF, "%8lu %04X | ", dbgTick(), FP_SEG(&dbgF));
-        va_start(ap, fmt);
-        ok = vfprintf(dbgF, fmt, ap);
-        va_end(ap);
-        if (ok >= 0)
-            ok = fprintf(dbgF, "\n");
-        if (ok >= 0)
-            ok = fflush(dbgF);
-        if (ok >= 0)
-            return;
-        /* Write failed — our DOS handle may have been closed by foreign
-         * code (exactly the class of bug this log hunts). Reopen once
-         * and retry the line, so the trail survives the event. */
-        fclose(dbgF);
-        dbgF = 0;
-        if (retried)
-            return;
-        retried = 1;
-    }
+    int ok;
+    FILE *f = fopen("LOG.TXT", "at");
+    if (!f)
+        return;
+    fprintf(f, "%8lu %04X | ", dbgTick(), FP_SEG(&f));
+    va_start(ap, fmt);
+    ok = vfprintf(f, fmt, ap);
+    va_end(ap);
+    if (ok >= 0)
+        (void)fprintf(f, "\n");
+    fclose(f);
 }
 
 /* Start a fresh log — call once at the top of lala.c's main(). */
-#define dbgInit() \
-    do { \
-        remove("LOG.TXT"); \
-        if (!dbgF) \
-            dbgF = fopen("LOG.TXT", "at"); \
-    } while (0)
+#define dbgInit() (remove("LOG.TXT"))
 
 #define DBG(msg) dbgLog msg
 

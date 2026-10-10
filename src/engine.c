@@ -16,6 +16,11 @@ TypePlayer player;
  * engine.c (game, test, musplay) gets the symbol; only lala.c sets it. */
 int g_noSound = 0;
 
+/* Autoplay hook (PORTING.md Phase 4 debug): when lala.c's --autoplay
+ * sets this, engineDoGame's frame loop calls it once per frame at the
+ * top (tests/musplay never set it -> no effect). */
+void (*g_autoTick)(void) = 0;
+
 /* QB REDIMs tileProperties(59); the file holds 41 entries, rest stay 0. */
 TypeTileProperties tileProperties[60];
 
@@ -38,6 +43,32 @@ static const char *asset(const char *dir, const char *file)
 {
     sprintf(assetPath, "%s\\%s", dir, file);
     return assetPath;
+}
+
+/* DQB's PCX path often leaves the palette buffer zeroed (decode runs the
+ * file past the 768-byte VGA palette block). Reload from the PCX tail. */
+void engineReadPcxPal(char *pal768, const char *pcxPath)
+{
+    unsigned char block[769];
+    FILE *f;
+    int i;
+
+    f = fopen(pcxPath, "rb");
+    if (!f)
+        return;
+    if (fseek(f, -769L, SEEK_END) != 0) {
+        fclose(f);
+        return;
+    }
+    if (fread(block, 1, 769, f) != 769) {
+        fclose(f);
+        return;
+    }
+    fclose(f);
+    if (block[0] != 0x0C)
+        return;
+    for (i = 0; i < 768; i++)
+        pal768[i] = (char)(block[i + 1] >> 2);
 }
 
 /* QB INPUT# numeric item reader: ints separated by commas, spaces,
@@ -878,6 +909,10 @@ int engineDoGame(int flag)
         DQBclearLayer(3);
         DQBloadImage(3, prefs.screenPos.x, prefs.screenPos.y,
             asset("GFX", prefs.backdropFile), prefs.pal, &w, &h);
+        engineReadPcxPal(prefs.pal, asset("GFX", prefs.backdropFile));
+        DBG(("DoGame: backdrop pal[0..5]=%d %d %d %d %d %d",
+            prefs.pal[0], prefs.pal[1], prefs.pal[2],
+            prefs.pal[3], prefs.pal[4], prefs.pal[5]));
     }
     map = engineMapLoad();
     DBG(("DoGame: map=%04X:%04X", DBG_SEG(map), DBG_OFF(map)));
@@ -908,6 +943,8 @@ int engineDoGame(int flag)
 
     while (!DQBkey(1)) {
         int x, y, i, s;
+        if (g_autoTick)
+            g_autoTick();
         halfLife = 1 - halfLife;
         subFrame = (subFrame + 1) & 3;
         if (subFrame == 0) {
@@ -1069,6 +1106,7 @@ void engineLoadTileset()
     int i, w, h, x, y;
 
     i = DQBloadImage(3, 0, 0, asset("GFX", prefs.tilesetFile), prefs.pal, &w, &h);
+    engineReadPcxPal(prefs.pal, asset("GFX", prefs.tilesetFile));
 
     x = 0; y = 0;
     

@@ -12,5 +12,6 @@ stderr.txt
 stdout.txt
 bin/TESTLOG.TXT
 bin/LOG.TXT
+bin/AUTO*.BIN
 bin/CODE.TXT
 bin/MUSPLAY.TXT

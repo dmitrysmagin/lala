@@ -144,6 +144,9 @@ extern TypePlayer player;
  * runs with and without sound can be A/B-tested against memory
  * corruption. Default 0 = normal sound. */
 extern int g_noSound;
+/* Autoplay hook: engineDoGame calls it per frame when set by lala.c's
+ * --autoplay; drives scripted KeyStatus/state pokes + VGA dumps. */
+extern void (*g_autoTick)(void);
 extern TypeTileProperties tileProperties[60];
 extern char __far *tileset[240];
 extern char __far *spriteset[21];
@@ -151,6 +154,7 @@ extern int spriteMapping[64];
 extern TypeSpriteProperties spriteProperties[64];
 
 /* engine.c */
+void engineReadPcxPal(char *pal768, const char *pcxPath);
 void engineInitVals(void);
 void engineLoadTileProperties(void);
 void engineLoadTileset(void);

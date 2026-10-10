@@ -7,14 +7,12 @@
  */
 #include "directqb.h"
 
-/* xDQBloadImage writes imgW/imgH through NEAR pointers using DS, so they
- * must be DGROUP-resident; callers pass stack locals, hence staging. */
 static int stagedW, stagedH;
 
 int DQBloadImage(int layer, int x, int y, const char __far *file, void __far *pal, int *imgW, int *imgH)
 {
-    int rc = xDQBloadImage(layer, x, y, (char __far *)file,
-        (char __far *)pal, &stagedW, &stagedH);
+    int rc = xDQBloadImage(layer, x, y, (char __far *)file, (char __far *)pal,
+        &stagedW, &stagedH);
     if (imgW)
         *imgW = stagedW;
     if (imgH)
